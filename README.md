@@ -200,17 +200,6 @@ PhoneClaw/
 └── README.md
 ```
 
-实际执行链路：
-
-```
-用户输入
-  → PromptBuilder 组装提示词
-  → Gemma 4 本地推理
-  → 需要能力时调用 load_skill
-  → 读取对应 SKILL.md
-  → 执行原生工具
-  → 返回最终中文结果
-```
 
 ## 常见问题
 
