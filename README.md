@@ -1,7 +1,5 @@
 <div align="center">
 
-# PhoneClaw
-
 ![banner](assets/banner.jpg)
 
 本地运行的私人 iPhone AI Agent，不联网，不上传，完全离线。

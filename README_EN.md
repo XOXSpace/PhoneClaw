@@ -1,7 +1,5 @@
 <div align="center">
 
-# PhoneClaw
-
 ![banner](assets/banner.jpg)
 
 A local AI Agent for iPhone. Offline. Private. Native.

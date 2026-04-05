@@ -37,8 +37,6 @@
 		C2B3C4D5E6F718293041B2C3 /* ToolRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2B3C4D5E6F718293041B2C4 /* ToolRegistry.swift */; };
 		C3C4D5E6F7081A2B3C52D3E4 /* ChatModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C4D5E6F7081A2B3C52D3E5 /* ChatModels.swift */; };
 		C4D5E6F70819A2B3C463E4F5 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F70819A2B3C463E4F6 /* Theme.swift */; };
-		D5E6F7081A2B3C4D5E6F7083 /* gemma-4-e2b-it-4bit in Resources */ = {isa = PBXBuildFile; fileRef = D5E6F7081A2B3C4D5E6F7084 /* gemma-4-e2b-it-4bit */; };
-		D5E6F7081A2B3C4D5E6F7085 /* gemma-4-e4b-it-4bit in Resources */ = {isa = PBXBuildFile; fileRef = D5E6F7081A2B3C4D5E6F7086 /* gemma-4-e4b-it-4bit */; };
 		ICONASSETS0000000000002 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ICONASSETS0000000000001 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -261,7 +259,7 @@
 			mainGroup = 4A876E909BCB4E1CAF5C50F5;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				AA4000000000000000000001 /* XCLocalSwiftPackageReference "InferenceKit" */,
+				AA4000000000000000000001 /* XCLocalSwiftPackageReference "Packages/InferenceKit" */,
 				AA4000000000000000000002 /* XCRemoteSwiftPackageReference "mlx-swift" */,
 				AA4000000000000000000003 /* XCRemoteSwiftPackageReference "swift-tokenizers" */,
 			);
@@ -280,8 +278,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D5E6F7081A2B3C4D5E6F7083 /* gemma-4-e2b-it-4bit in Resources */,
-				D5E6F7081A2B3C4D5E6F7085 /* gemma-4-e4b-it-4bit in Resources */,
 				ICONASSETS0000000000002 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -475,6 +471,7 @@
 				CODE_SIGN_ENTITLEMENTS = PhoneClaw.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
+				
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -495,6 +492,7 @@
 				CODE_SIGN_ENTITLEMENTS = PhoneClaw.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
+				
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -531,7 +529,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		AA4000000000000000000001 /* XCLocalSwiftPackageReference "InferenceKit" */ = {
+		AA4000000000000000000001 /* XCLocalSwiftPackageReference "Packages/InferenceKit" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/InferenceKit;
 		};
@@ -574,12 +572,12 @@
 		};
 		AA5000000000000000000004 /* MLXLMCommon */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = AA4000000000000000000001 /* XCLocalSwiftPackageReference "InferenceKit" */;
+			package = AA4000000000000000000001 /* XCLocalSwiftPackageReference "Packages/InferenceKit" */;
 			productName = MLXLMCommon;
 		};
 		AA5000000000000000000005 /* MLXVLM */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = AA4000000000000000000001 /* XCLocalSwiftPackageReference "InferenceKit" */;
+			package = AA4000000000000000000001 /* XCLocalSwiftPackageReference "Packages/InferenceKit" */;
 			productName = MLXVLM;
 		};
 		AA5000000000000000000006 /* Tokenizers */ = {
@@ -589,7 +587,7 @@
 		};
 		AA5000000000000000000007 /* MLXLLM */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = AA4000000000000000000001 /* XCLocalSwiftPackageReference "InferenceKit" */;
+			package = AA4000000000000000000001 /* XCLocalSwiftPackageReference "Packages/InferenceKit" */;
 			productName = MLXLLM;
 		};
 /* End XCSwiftPackageProductDependency section */
