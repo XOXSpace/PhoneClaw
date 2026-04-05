@@ -206,7 +206,7 @@ public class MLXLocalLLMService: LLMEngine {
     }
 
     /// 根据当前剩余内存推荐安全的 history 深度（消息条数）。
-    /// E4B 每 ~200 token history ≈ ~200 MB 推理峰值，保守估算：
+    /// Gemma E2B 每 ~200 token history ≈ ~200 MB 推理峰值，保守估算：
     ///   headroom > 1500 MB → suffix(4)  最近 2 轮
     ///   headroom > 900  MB → suffix(2)  最近 1 轮
     ///   headroom ≤ 900  MB → suffix(0)  无历史（临界状态）
@@ -221,9 +221,9 @@ public class MLXLocalLLMService: LLMEngine {
 
 
     public func warmup() async throws {
-        // Warmup skipped for E4B.
+        // Warmup skipped for E2B.
         //
-        // E4B has 42 layers. Running MLXLMCommon.generate() for the first time
+        // E2B has 26 layers (E4B has 42). Running MLXLMCommon.generate() for the first time
         // triggers Metal JIT shader compilation across all unique kernel variants
         // (attention, MLP, PLE, RoPE ...). This compilation adds a temporary
         // memory spike on top of the already-loaded 4.9 GB weights, which pushes
@@ -281,7 +281,7 @@ public class MLXLocalLLMService: LLMEngine {
                 }
 
                 // Free Metal buffers cached from previous inference before
-                // allocating the new computation graph. Critical for E4B:
+                // allocating the new computation graph. Critical on low-headroom devices:
                 // the follow-up prompt is longer than the first inference,
                 // and without clearing, residual cache + new activations
                 // exceed the 6GB jetsam limit on iPhone.

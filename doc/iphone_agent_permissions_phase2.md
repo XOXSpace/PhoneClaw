@@ -32,7 +32,7 @@ Info.plist: NSPhotoLibraryAddUsageDescription        (仅写入)
 skill: photos_search
   参数: { query: "上周的收据", type: "image", dateRange: "last_week" }
   → PHFetchOptions 按日期筛选 
-  → PHImageManager 获取缩略图 → E4B 批量图片理解
+  → PHImageManager 获取缩略图 → Gemma 4 批量图片理解
   → 返回: { matches: [{ id: "...", date: "2026-03-28", 
             description: "星巴克收据 ¥35" }] }
 
@@ -52,7 +52,7 @@ skill: photos_by_location
   → 返回按地点筛选的照片列表
 
 skill: photos_organize
-  → 批量获取照片 → E4B 分类（风景/人物/文档/食物/截图）
+  → 批量获取照片 → Gemma 4 分类（风景/人物/文档/食物/截图）
   → 返回分类建议: { categories: { food: [ids], docs: [ids], ... } }
 
 skill: photo_edit_metadata
@@ -66,12 +66,12 @@ skill: photo_edit_metadata
 ```
 用户: "帮我找上周拍的那张发票"
   → photos_search(query: "发票", dateRange: "last_week")
-  → E4B 逐张分析缩略图，识别发票
+  → Gemma 4 逐张分析缩略图，识别发票
   → "找到了，是3月28日拍的，金额¥1,280，
      开票方: XX科技有限公司，要我帮你提取详细信息吗？"
 
 用户: "整理我这个月的照片"
-  → photos_organize → E4B 批量分类
+  → photos_organize → Gemma 4 批量分类
   → "这个月共 247 张照片:
      - 自拍/人物: 45张
      - 食物: 32张  
@@ -138,7 +138,7 @@ skill: contacts_birthday_upcoming
 
 ```
 用户: [拍一张名片]
-  → camera_capture → ocr_extract → E4B 解析名片
+  → camera_capture → ocr_extract → Gemma 4 解析名片
   → contacts_create(name: "王五", phone: "186...", 
                      company: "字节跳动", title: "产品总监")
   → "已把王五的信息存入通讯录:
@@ -343,7 +343,7 @@ skill: health_blood_oxygen
 
 skill: health_comprehensive_report
   → 并行查询: 步数 + 心率 + 睡眠 + 运动 + 体重
-  → E4B 综合分析
+  → Gemma 4 综合分析
   → 返回自然语言健康报告
 ```
 
@@ -352,7 +352,7 @@ skill: health_comprehensive_report
 ```
 用户: "我今天状态怎么样？"
   → health_comprehensive_report
-  → E4B 综合分析:
+  → Gemma 4 综合分析:
   → "整体状态不错:
      😴 昨晚睡了7小时12分，深睡1.5小时，质量评分88分
      🚶 今天已走 8,432 步 (目标84%)
@@ -444,7 +444,7 @@ UIDocumentPickerViewController — 用户手动选择文件（无需权限声明
 skill: file_pick
   → UIDocumentPickerViewController
   → 用户选择文件 → 返回文件 URL
-  → 读取内容 → E4B 分析
+  → 读取内容 → Gemma 4 分析
 
 skill: file_read
   参数: { path: "sandbox://Documents/notes.txt" }
@@ -462,7 +462,7 @@ skill: file_list
   → 返回: [{ name: "notes.txt", size: "2.3KB", modified: "..." }]
 
 skill: file_analyze_pdf
-  → file_pick (用户选PDF) → 提取文本 → E4B 总结
+  → file_pick (用户选PDF) → 提取文本 → Gemma 4 总结
   → 返回: { pages: 12, summary: "这份合同主要内容是..." }
 ```
 

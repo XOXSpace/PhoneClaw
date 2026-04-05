@@ -1,25 +1,16 @@
 PODS:
-  - MediaPipeTasksGenAI (0.10.33):
-    - MediaPipeTasksGenAIC (= 0.10.33)
-  - MediaPipeTasksGenAIC (0.10.33)
   - Yams (5.0.6)
 
 DEPENDENCIES:
-  - MediaPipeTasksGenAI
-  - MediaPipeTasksGenAIC
   - Yams
 
 SPEC REPOS:
   trunk:
-    - MediaPipeTasksGenAI
-    - MediaPipeTasksGenAIC
     - Yams
 
 SPEC CHECKSUMS:
-  MediaPipeTasksGenAI: 8eed8e6d03fe26d30c4205cb5295ec7b394432ad
-  MediaPipeTasksGenAIC: cb098ecea44e248efe8fe7e2f62b4cb0df781802
   Yams: e10dae147f517ed57ecae37c5e8681bdf8fcab65
 
-PODFILE CHECKSUM: d8bee9153b2205bb088e3f31c00f8104a381f369
+PODFILE CHECKSUM: 9df982f23ad8b7c63d10e2216112ece6b6a7f0b9
 
 COCOAPODS: 1.16.2

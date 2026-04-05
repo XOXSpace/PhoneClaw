@@ -12,7 +12,6 @@
 		5084E1CD2E831BC05F5E4374 /* PromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7C06DA449D1395217A42D5 /* PromptBuilder.swift */; };
 		9412304167DACB86E5D60D49 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5ED928BF14864713A9A9D16 /* ContentView.swift */; };
 		97E96A2FBFFAF609F276A896 /* ConfigurationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E62C3CEFC7AE63873D751E75 /* ConfigurationsView.swift */; };
-		A7D611F40C180838492899EC /* Pods_PhoneClaw.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23250423DC31D59A20B0B826 /* Pods_PhoneClaw.framework */; };
 		AA1000000000000000000001 /* LLMEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000001 /* LLMEngine.swift */; };
 		AA1000000000000000000002 /* MLXLocalLLMService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000002 /* MLXLocalLLMService.swift */; };
 		AA1000000000000000000003 /* Gemma4Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000003 /* Gemma4Config.swift */; };
@@ -33,6 +32,7 @@
 		AA1000000000000000000019 /* Gemma4Processor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000019 /* Gemma4Processor.swift */; };
 		B881A2E7F9483D5ED2AC206B /* SkillsManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D269F8BFCAB68D82440F704B /* SkillsManagerView.swift */; };
 		B8A84E4D0DDDE011B5929DA2 /* AgentEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = E18A47114A10132E25E220F8 /* AgentEngine.swift */; };
+		BD75E7E5620A8FF0A868E9F0 /* libPods-PhoneClaw.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4F4ACB3F4531FF61E0AADA07 /* libPods-PhoneClaw.a */; };
 		C1A2B3D4E5F607182930A1B2 /* SkillLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3D4E5F607182930A1B3 /* SkillLoader.swift */; };
 		C2B3C4D5E6F718293041B2C3 /* ToolRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2B3C4D5E6F718293041B2C4 /* ToolRegistry.swift */; };
 		C3C4D5E6F7081A2B3C52D3E4 /* ChatModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C4D5E6F7081A2B3C52D3E5 /* ChatModels.swift */; };
@@ -43,11 +43,11 @@
 
 /* Begin PBXFileReference section */
 		098B30935B91CD0BEF3A5056 /* Pods-PhoneClaw.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PhoneClaw.release.xcconfig"; path = "Target Support Files/Pods-PhoneClaw/Pods-PhoneClaw.release.xcconfig"; sourceTree = "<group>"; };
-		23250423DC31D59A20B0B826 /* Pods_PhoneClaw.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_PhoneClaw.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		2E7C06DA449D1395217A42D5 /* PromptBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptBuilder.swift; sourceTree = "<group>"; };
 		38FC1001EB728212335AC141 /* PhoneClaw.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PhoneClaw.entitlements; sourceTree = "<group>"; };
 		408F2AE98EA54717A74FA4B1 /* PhoneClaw.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PhoneClaw.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4DD9808FE93325C3CE4CFA00 /* PhoneClawApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneClawApp.swift; sourceTree = "<group>"; };
+		4F4ACB3F4531FF61E0AADA07 /* libPods-PhoneClaw.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-PhoneClaw.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		52F30C6348B834E5D157205F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		571908036E6DCED1D58C1E9E /* Skills.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Skills.swift; sourceTree = "<group>"; };
 		A1AB7F250BEEFF938318AA75 /* Pods-PhoneClaw.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PhoneClaw.debug.xcconfig"; path = "Target Support Files/Pods-PhoneClaw/Pods-PhoneClaw.debug.xcconfig"; sourceTree = "<group>"; };
@@ -86,7 +86,7 @@
 				AA1000000000000000000017 /* MLXLLM in Frameworks */,
 				AA1000000000000000000015 /* MLXVLM in Frameworks */,
 				AA1000000000000000000016 /* Tokenizers in Frameworks */,
-				A7D611F40C180838492899EC /* Pods_PhoneClaw.framework in Frameworks */,
+				BD75E7E5620A8FF0A868E9F0 /* libPods-PhoneClaw.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -192,7 +192,7 @@
 		E1D6A9BAE368B2FB909A7774 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				23250423DC31D59A20B0B826 /* Pods_PhoneClaw.framework */,
+				4F4ACB3F4531FF61E0AADA07 /* libPods-PhoneClaw.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -220,7 +220,6 @@
 				479C4F7A038F48E691B8652F /* Sources */,
 				4B243621551C86F4B6922A8F /* Frameworks */,
 				E6F7081A2B3C4D5E6F708100 /* Resources */,
-				8550F40384981C30F8E211EA /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -259,7 +258,7 @@
 			mainGroup = 4A876E909BCB4E1CAF5C50F5;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				AA4000000000000000000001 /* XCLocalSwiftPackageReference "Packages/InferenceKit" */,
+				AA4000000000000000000001 /* XCLocalSwiftPackageReference "InferenceKit" */,
 				AA4000000000000000000002 /* XCRemoteSwiftPackageReference "mlx-swift" */,
 				AA4000000000000000000003 /* XCRemoteSwiftPackageReference "swift-tokenizers" */,
 			);
@@ -286,27 +285,6 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		8550F40384981C30F8E211EA /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-PhoneClaw/Pods-PhoneClaw-frameworks-${CONFIGURATION}-input-files.xcfilelist",
-			);
-			inputPaths = (
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-PhoneClaw/Pods-PhoneClaw-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-PhoneClaw/Pods-PhoneClaw-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
 		B75792C14D3A81FBCD50329B /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -551,7 +529,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		AA4000000000000000000001 /* XCLocalSwiftPackageReference "Packages/InferenceKit" */ = {
+		AA4000000000000000000001 /* XCLocalSwiftPackageReference "InferenceKit" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/InferenceKit;
 		};
@@ -594,12 +572,12 @@
 		};
 		AA5000000000000000000004 /* MLXLMCommon */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = AA4000000000000000000001 /* XCLocalSwiftPackageReference "Packages/InferenceKit" */;
+			package = AA4000000000000000000001 /* XCLocalSwiftPackageReference "InferenceKit" */;
 			productName = MLXLMCommon;
 		};
 		AA5000000000000000000005 /* MLXVLM */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = AA4000000000000000000001 /* XCLocalSwiftPackageReference "Packages/InferenceKit" */;
+			package = AA4000000000000000000001 /* XCLocalSwiftPackageReference "InferenceKit" */;
 			productName = MLXVLM;
 		};
 		AA5000000000000000000006 /* Tokenizers */ = {
@@ -609,7 +587,7 @@
 		};
 		AA5000000000000000000007 /* MLXLLM */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = AA4000000000000000000001 /* XCLocalSwiftPackageReference "Packages/InferenceKit" */;
+			package = AA4000000000000000000001 /* XCLocalSwiftPackageReference "InferenceKit" */;
 			productName = MLXLLM;
 		};
 /* End XCSwiftPackageProductDependency section */

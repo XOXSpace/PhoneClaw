@@ -1,12 +1,6 @@
 platform :ios, '17.0'
 
 target 'PhoneClaw' do
-  use_frameworks!
-
-  # Gemma 4 E4B 端侧推理引擎
-  pod 'MediaPipeTasksGenAI'
-  pod 'MediaPipeTasksGenAIC'
-
   # YAML 解析（SkillLoader 用于解析 SKILL.md frontmatter）
   pod 'Yams'
 end

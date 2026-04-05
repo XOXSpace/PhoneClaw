@@ -78,7 +78,7 @@ skill: ar_room_scan
 ```
 skill: screen_record_start → 开始录屏
 skill: screen_record_stop  → 停止录屏并保存
-skill: screen_capture_frame → 捕获当前屏幕帧 → E4B 分析屏幕内容
+skill: screen_capture_frame → 捕获当前屏幕帧 → Gemma 4 分析屏幕内容
 ```
 
 > **重要**: `startCapture` 可以逐帧获取屏幕图像，

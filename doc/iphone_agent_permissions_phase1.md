@@ -9,7 +9,7 @@
         │
         ▼
 ┌───────────────┐
-│   Gemma 4 E4B │  ← 端侧推理，CoreML/MLX
+│   Gemma 4 Gemma 4 │  ← 端侧推理，CoreML/MLX
 │   (LLM Brain) │
 └───────┬───────┘
         │ Function Calling (意图 → Skill 名)
@@ -86,12 +86,12 @@ Info.plist: NSCameraUsageDescription
 ```
 skill: camera_capture
   → 拍照并返回 UIImage
-  → E4B 直接分析图片内容
+  → Gemma 4 直接分析图片内容
 
 skill: document_scan  
   → 调用 VNDocumentCameraViewController
   → 返回矫正后的文档图片
-  → E4B 分析文档内容并总结
+  → Gemma 4 分析文档内容并总结
 
 skill: barcode_scan
   → VNDetectBarcodesRequest 实时扫码
@@ -114,7 +114,7 @@ skill: body_pose
   → 返回: { joints: { leftShoulder: {x,y}, rightKnee: {x,y}, ... } }
 
 skill: live_scene_describe
-  → AVCaptureVideoDataOutput → 逐帧送入 E4B
+  → AVCaptureVideoDataOutput → 逐帧送入 Gemma 4
   → 实时描述当前画面（辅助功能场景）
 ```
 
@@ -122,7 +122,7 @@ skill: live_scene_describe
 
 ```
 用户: "帮我看看这个药盒上写了什么"
-  → camera_capture → E4B 图片理解
+  → camera_capture → Gemma 4 图片理解
   → 返回: "这是布洛芬缓释胶囊，规格0.3g×24粒，
            有效期至2026年8月，每次1-2粒，每日2次"
 
@@ -131,7 +131,7 @@ skill: live_scene_describe
   → 返回: "这是一个微信支付码，金额35元，商户: 星巴克西湖店"
  
 用户: "这个东西叫什么？"
-  → camera_capture → object_detect + E4B
+  → camera_capture → object_detect + Gemma 4
   → 返回: "这是一株龟背竹 (Monstera deliciosa)，
            喜半阴湿润环境，每周浇水1-2次"
 ```
@@ -164,7 +164,7 @@ Info.plist: NSSpeechRecognitionUsageDescription  (如用语音识别)
 skill: voice_listen
   → AVAudioEngine + SFSpeechRecognizer
   → 实时语音转文字，作为 Agent 输入
-  → E4B 原生支持音频输入时可直接喂原始音频
+  → Gemma 4 原生支持音频输入时可直接喂原始音频
 
 skill: audio_record
   → AVAudioRecorder → 录制音频文件
@@ -172,7 +172,7 @@ skill: audio_record
 
 skill: meeting_transcribe
   → SFSpeechAudioBufferRecognitionRequest (流式)
-  → 持续转写 → 结束后 E4B 总结
+  → 持续转写 → 结束后 Gemma 4 总结
   → 返回: { transcript: "...", summary: "..." }
 
 skill: sound_detect
@@ -180,10 +180,10 @@ skill: sound_detect
   → 返回: { sound: "dog_bark", confidence: 0.88 }
   → 可识别: 门铃、婴儿哭声、警报、咳嗽、鼓掌等
 
-skill: audio_to_e4b
+skill: audio_to_model
   → AVAudioEngine → 原始音频 buffer
-  → 直接送入 E4B 多模态输入
-  → E4B 理解音频内容（如果模型支持）
+  → 直接送入 Gemma 4 多模态输入
+  → Gemma 4 理解音频内容（如果模型支持）
 ```
 
 ### 杀手级场景
@@ -191,7 +191,7 @@ skill: audio_to_e4b
 ```
 用户: "帮我录一下这个会议，结束后给我做个总结"
   → audio_record + meeting_transcribe (并行)
-  → 会议结束后 E4B 总结
+  → 会议结束后 Gemma 4 总结
   → 返回: "会议要点: 1. Q2目标调整为... 2. 张三负责... 
            3. 下周五前提交方案 | 待办: 3项 | 时长: 47分钟"
 
@@ -368,7 +368,7 @@ skill: nfc_tag_info
 
 ```
 用户: "扫一下这个 NFC 标签"
-  → nfc_read → E4B 分析内容
+  → nfc_read → Gemma 4 分析内容
   → "这个标签包含一个 Wi-Fi 配置:
      SSID: HomeNetwork, 加密: WPA2
      要我帮你连接吗？"

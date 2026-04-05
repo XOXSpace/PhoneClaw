@@ -270,7 +270,7 @@ class AgentEngine {
         }
     }
 
-    // MARK: - 处理用户输入（LiteRT-LM C API 流式输出）
+    // MARK: - 处理用户输入（MLX 流式输出）
 
     func processInput(_ text: String, images: [UIImage] = []) async {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -63,7 +63,7 @@ Action Extension Target
 | # | 权限 | Info.plist Key | Skills | 数量 |
 |---|------|---------------|--------|------|
 | 1 | 相机 | NSCameraUsageDescription | camera_capture, document_scan, barcode_scan, ocr_extract, object_detect, face_analyze, body_pose, live_scene_describe | 8 |
-| 2 | 麦克风 | NSMicrophoneUsageDescription | voice_listen, audio_record, meeting_transcribe, sound_detect, audio_to_e4b | 5 |
+| 2 | 麦克风 | NSMicrophoneUsageDescription | voice_listen, audio_record, meeting_transcribe, sound_detect, audio_to_model | 5 |
 | 3 | 语音识别 | NSSpeechRecognitionUsageDescription | (包含在麦克风 skills 中) | - |
 | 4 | 定位(前台) | NSLocationWhenInUseUsageDescription | location_get, nearby_search, route_plan, compass_heading | 4 |
 | 5 | 定位(后台) | NSLocationAlwaysAndWhenInUseUsageDescription | location_track, geofence_set | 2 |

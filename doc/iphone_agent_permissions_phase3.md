@@ -25,7 +25,7 @@ iOS 16+: 跨 App 粘贴时需用户确认弹窗
 ```
 skill: clipboard_read   → 读取并分析剪贴板内容
 skill: clipboard_write  → 写入翻译/格式化结果到剪贴板
-skill: clipboard_analyze → 读取 → E4B 自动判断类型(文本/URL/图片) → 总结/翻译
+skill: clipboard_analyze → 读取 → Gemma 4 自动判断类型(文本/URL/图片) → 总结/翻译
 ```
 
 ---
@@ -120,7 +120,7 @@ Agent 的每个 Skill 都可注册为 App Intent → Siri 可直接调用。
 ### Agent Skills
 ```
 skill: web_fetch      → HTTP 请求
-skill: web_search     → 搜索 + E4B 总结
+skill: web_search     → 搜索 + Gemma 4 总结
 skill: api_call       → 调用 REST API
 skill: network_status → 网络状态查询
 skill: download_file  → 下载文件到沙箱

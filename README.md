@@ -41,7 +41,7 @@ PhoneClaw/
 
 - Xcode 16+
 - iOS 17.0+
-- iPhone with Apple Silicon (A17 Pro or later recommended for Gemma 4 E2B/E4B)
+- iPhone with Apple Silicon (A17 Pro or later recommended for Gemma 4 E2B)
 - CocoaPods (`gem install cocoapods`)
 
 ## Model

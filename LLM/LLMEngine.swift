@@ -3,8 +3,7 @@ import CoreImage
 
 // MARK: - LLM Engine Protocol
 
-/// Thin protocol for LLM inference engines.
-/// Both MLX and MediaPipe implementations conform to this.
+/// Thin protocol for on-device LLM inference engines.
 public protocol LLMEngine {
     func load() async throws
     func warmup() async throws
@@ -29,7 +28,7 @@ public struct LLMStats {
     public var tokensPerSec: Double = 0
     public var peakMemoryMB: Double = 0
     public var totalTokens: Int = 0
-    public var backend: String = "unknown"  // "mlx-gpu" | "mediapipe-cpu"
+    public var backend: String = "unknown"  // "mlx-gpu"
 
     public init() {}
 }

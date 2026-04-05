@@ -58,7 +58,7 @@ struct PromptBuilder {
         prompt += "\n<turn|>\n"
 
         // 对话历史（动态深度，由 llm.safeHistoryDepth 控制）
-        // E4B 内存限制：jetsam 上限 6144 MB，模型占用 4220 MB，仅剩 ~1.9 GB。
+        // E2B 内存限制：jetsam 上限 6144 MB，模型占用 4220 MB，仅剩 ~1.9 GB。
         // suffix(12) 在工具调用后会积累 6+ 条消息（tool_call + result × N），
         // 使 prefill 超过 1000 tokens，导致第二次提问时 OOM。
         // suffix(4) 保留最近 2 轮（≈200 tokens history），足够连贯对话。
@@ -93,7 +93,7 @@ struct PromptBuilder {
 
     /// 构造工具/Skill 结果后的 follow-up prompt
     ///
-    /// E4B 内存约束：follow-up 不能拼接完整 originalPrompt（会使 prefill 过长）。
+    /// E2B 内存约束：follow-up 不能拼接完整 originalPrompt（会使 prefill 过长）。
     /// 改为构建一个独立的紧凑 prompt：保留 system context + 用户问题 + 工具结果。
     static func buildFollowUp(
         originalPrompt: String,
