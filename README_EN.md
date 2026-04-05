@@ -200,17 +200,6 @@ PhoneClaw/
 └── README.md
 ```
 
-Execution chain:
-
-```
-User input
-  → PromptBuilder assembles the prompt
-  → Gemma 4 runs local inference
-  → Calls load_skill when a capability is needed
-  → Reads the corresponding SKILL.md
-  → Executes the native tool
-  → Returns the final response
-```
 
 ## FAQ
 
