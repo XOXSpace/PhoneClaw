@@ -386,6 +386,7 @@ struct ConfigurationsView: View {
             modelBadge(localized("检查中", "Checking"))
         case .downloading(let completedFiles, let totalFiles, _):
             downloadProgressBadge(
+                modelID: model.id,
                 completedFiles: completedFiles,
                 totalFiles: totalFiles
             )
@@ -418,22 +419,34 @@ struct ConfigurationsView: View {
     }
 
     private func downloadProgressBadge(
+        modelID: String,
         completedFiles: Int,
         totalFiles: Int
     ) -> some View {
         let safeTotal = max(totalFiles, 1)
         let value = Double(min(completedFiles, safeTotal))
-        return VStack(alignment: .trailing, spacing: 4) {
-            Text(localized(
-                "下载中 \(completedFiles)/\(totalFiles)",
-                "Downloading \(completedFiles)/\(totalFiles)"
-            ))
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(Theme.textTertiary)
+        return HStack(spacing: 8) {
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(localized(
+                    "下载中 \(completedFiles)/\(totalFiles)",
+                    "Downloading \(completedFiles)/\(totalFiles)"
+                ))
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Theme.textTertiary)
 
-            ProgressView(value: value, total: Double(safeTotal))
-                .progressViewStyle(.linear)
-                .frame(width: 110)
+                ProgressView(value: value, total: Double(safeTotal))
+                    .progressViewStyle(.linear)
+                    .frame(width: 110)
+            }
+
+            Button(localized("取消", "Cancel")) {
+                engine.llm.cancelModelDownload(id: modelID)
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(Theme.textPrimary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Theme.bg, in: Capsule())
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)

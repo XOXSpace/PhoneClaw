@@ -63,17 +63,24 @@ ___SKILLS___
 
 // MARK: - 聊天消息
 
-struct ChatImageAttachment: Identifiable {
-    let id = UUID()
+struct ChatImageAttachment: Identifiable, Codable {
+    let id: UUID
     let data: Data
     private static let storageMaxDimension: CGFloat = 1_024
     private static let compressionQuality: CGFloat = 0.78
 
+    init(id: UUID = UUID(), data: Data) {
+        self.id = id
+        self.data = data
+    }
+
     init?(image: UIImage) {
         let prepared = Self.preparedImage(image, maxDimension: Self.storageMaxDimension)
         if let jpeg = prepared.jpegData(compressionQuality: Self.compressionQuality) {
+            self.id = UUID()
             self.data = jpeg
         } else if let png = prepared.pngData() {
+            self.id = UUID()
             self.data = png
         } else {
             return nil
@@ -124,15 +131,30 @@ struct ChatImageAttachment: Identifiable {
     }
 }
 
-struct ChatAudioAttachment: Identifiable {
-    let id = UUID()
+struct ChatAudioAttachment: Identifiable, Codable {
+    let id: UUID
     let wavData: Data
     let duration: TimeInterval
     let sampleRate: Double
     let waveform: [Float]
 
+    init(
+        id: UUID = UUID(),
+        wavData: Data,
+        duration: TimeInterval,
+        sampleRate: Double,
+        waveform: [Float]
+    ) {
+        self.id = id
+        self.wavData = wavData
+        self.duration = duration
+        self.sampleRate = sampleRate
+        self.waveform = waveform
+    }
+
     init?(snapshot: AudioCaptureSnapshot) {
         guard !snapshot.pcm.isEmpty, snapshot.sampleRate > 0 else { return nil }
+        self.id = UUID()
         self.wavData = Self.makeWAVData(
             pcm: snapshot.pcm,
             sampleRate: snapshot.sampleRate,
@@ -225,27 +247,30 @@ struct ChatAudioAttachment: Identifiable {
     }
 }
 
-struct ChatMessage: Identifiable {
+struct ChatMessage: Identifiable, Codable {
     let id: UUID
     var role: Role
     var content: String
     var images: [ChatImageAttachment]
     var audios: [ChatAudioAttachment]
-    let timestamp = Date()
+    let timestamp: Date
     var skillName: String? = nil
 
     init(
+        id: UUID = UUID(),
         role: Role,
         content: String,
         images: [ChatImageAttachment] = [],
         audios: [ChatAudioAttachment] = [],
+        timestamp: Date = Date(),
         skillName: String? = nil
     ) {
-        self.id = UUID()
+        self.id = id
         self.role = role
         self.content = content
         self.images = images
         self.audios = audios
+        self.timestamp = timestamp
         self.skillName = skillName
     }
 
@@ -260,9 +285,24 @@ struct ChatMessage: Identifiable {
         self.skillName = skillName
     }
 
-    enum Role {
+    enum Role: String, Codable {
         case user, assistant, system, skillResult
     }
+}
+
+struct ChatSessionSummary: Identifiable, Codable, Equatable {
+    let id: UUID
+    var title: String
+    var preview: String
+    var updatedAt: Date
+}
+
+private struct ChatSessionRecord: Codable {
+    let id: UUID
+    var title: String
+    var preview: String
+    var updatedAt: Date
+    var messages: [ChatMessage]
 }
 
 // MARK: - Agent Engine
@@ -270,10 +310,18 @@ struct ChatMessage: Identifiable {
 @Observable
 class AgentEngine {
 
+    static let currentSessionDefaultsKey = "PhoneClaw.currentSessionID"
+
     let llm = MLXLocalLLMService()
-    var messages: [ChatMessage] = []
+    var messages: [ChatMessage] = [] {
+        didSet {
+            scheduleSessionSave()
+        }
+    }
     var isProcessing = false
     var config = ModelConfig()
+    var sessionSummaries: [ChatSessionSummary] = []
+    var currentSessionID = UUID()
 
     // 文件驱动的 Skill 系统
     let skillLoader = SkillLoader()
@@ -284,6 +332,9 @@ class AgentEngine {
 
     private let thinkingOpenMarker = "[[PHONECLAW_THINK]]"
     private let thinkingCloseMarker = "[[/PHONECLAW_THINK]]"
+    private let sessionsDirectoryName = "Sessions"
+    private let sessionsIndexFileName = "sessions_index.json"
+    private var sessionSaveTask: Task<Void, Never>?
 
 
     var enabledSkillInfos: [SkillInfo] {
@@ -299,6 +350,9 @@ class AgentEngine {
 
     init() {
         loadSkillEntries()
+        currentSessionID =
+            UUID(uuidString: UserDefaults.standard.string(forKey: Self.currentSessionDefaultsKey) ?? "")
+            ?? UUID()
     }
 
     private func loadSkillEntries() {
@@ -1725,6 +1779,7 @@ class AgentEngine {
         applyModelSelection()
         llm.refreshModelInstallStates()
         loadSystemPrompt()       // 从 SYSPROMPT.md 注入 system prompt
+        loadPersistedSessions()
         applySamplingConfig()
         llm.loadModel()
     }
@@ -2339,7 +2394,7 @@ class AgentEngine {
     // MARK: - 工具
 
     func clearMessages() {
-        messages.removeAll()
+        startNewSession()
     }
 
     func cancelActiveGeneration() {
@@ -2352,7 +2407,7 @@ class AgentEngine {
             messages[lastAssistant].update(content: content.isEmpty ? "（已中断）" : content)
         }
 
-        log("[Agent] Generation cancelled because the app left foreground")
+        log("[Agent] Generation cancelled")
     }
 
     private func promptImages(
@@ -2361,6 +2416,69 @@ class AgentEngine {
     ) -> [CIImage] {
         _ = historyDepth
         return Array(currentImages.prefix(1).compactMap(\.ciImage))
+    }
+
+    func startNewSession() {
+        flushPendingSessionSave()
+        if isProcessing || llm.isGenerating {
+            cancelActiveGeneration()
+        }
+        currentSessionID = UUID()
+        UserDefaults.standard.set(currentSessionID.uuidString, forKey: Self.currentSessionDefaultsKey)
+        messages = []
+    }
+
+    func loadSession(id: UUID) {
+        guard id != currentSessionID || messages.isEmpty else { return }
+        flushPendingSessionSave()
+        if isProcessing || llm.isGenerating {
+            cancelActiveGeneration()
+        }
+        guard let record = loadSessionRecord(id: id) else { return }
+        currentSessionID = id
+        UserDefaults.standard.set(currentSessionID.uuidString, forKey: Self.currentSessionDefaultsKey)
+        messages = record.messages
+        updateSessionSummary(
+            .init(
+                id: record.id,
+                title: record.title,
+                preview: record.preview,
+                updatedAt: record.updatedAt
+            )
+        )
+    }
+
+    func deleteSession(id: UUID) {
+        flushPendingSessionSave()
+        do {
+            try FileManager.default.removeItem(at: sessionFileURL(for: id))
+        } catch {
+            log("[History] delete failed: \(error.localizedDescription)")
+        }
+        sessionSummaries.removeAll { $0.id == id }
+        persistSessionsIndex()
+
+        if currentSessionID == id {
+            sessionSaveTask?.cancel()
+            sessionSaveTask = nil
+
+            if let next = sessionSummaries.first,
+               let record = loadSessionRecord(id: next.id) {
+                currentSessionID = next.id
+                UserDefaults.standard.set(currentSessionID.uuidString, forKey: Self.currentSessionDefaultsKey)
+                messages = record.messages
+            } else {
+                currentSessionID = UUID()
+                UserDefaults.standard.set(currentSessionID.uuidString, forKey: Self.currentSessionDefaultsKey)
+                messages = []
+            }
+        }
+    }
+
+    func flushPendingSessionSave() {
+        sessionSaveTask?.cancel()
+        sessionSaveTask = nil
+        saveCurrentSession()
     }
 
     func setAllSkills(enabled: Bool) {
@@ -2399,6 +2517,198 @@ class AgentEngine {
             if !results.isEmpty { break }
         }
         return results
+    }
+
+    // MARK: - Session Persistence
+
+    private func scheduleSessionSave() {
+        sessionSaveTask?.cancel()
+        let currentID = currentSessionID
+        sessionSaveTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled, let self, self.currentSessionID == currentID else { return }
+            self.saveCurrentSession()
+        }
+    }
+
+    private func saveCurrentSession() {
+        guard !messages.isEmpty else { return }
+
+        let summary = makeSessionSummary(
+            id: currentSessionID,
+            messages: messages
+        )
+        let record = ChatSessionRecord(
+            id: currentSessionID,
+            title: summary.title,
+            preview: summary.preview,
+            updatedAt: summary.updatedAt,
+            messages: messages
+        )
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+
+        do {
+            let directory = try ensureSessionsDirectory()
+            let data = try encoder.encode(record)
+            try data.write(to: sessionFileURL(for: currentSessionID), options: .atomic)
+            updateSessionSummary(summary)
+            persistSessionsIndex()
+            UserDefaults.standard.set(currentSessionID.uuidString, forKey: Self.currentSessionDefaultsKey)
+            _ = directory
+        } catch {
+            log("[History] save failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func loadPersistedSessions() {
+        do {
+            _ = try ensureSessionsDirectory()
+        } catch {
+            log("[History] setup failed: \(error.localizedDescription)")
+        }
+
+        sessionSummaries = loadSessionsIndex().sorted { $0.updatedAt > $1.updatedAt }
+
+        if let record = loadSessionRecord(id: currentSessionID) {
+            messages = record.messages
+            updateSessionSummary(
+                .init(
+                    id: record.id,
+                    title: record.title,
+                    preview: record.preview,
+                    updatedAt: record.updatedAt
+                )
+            )
+            return
+        }
+
+        if let first = sessionSummaries.first, let record = loadSessionRecord(id: first.id) {
+            currentSessionID = first.id
+            UserDefaults.standard.set(currentSessionID.uuidString, forKey: Self.currentSessionDefaultsKey)
+            messages = record.messages
+            return
+        }
+
+        currentSessionID = UUID()
+        UserDefaults.standard.set(currentSessionID.uuidString, forKey: Self.currentSessionDefaultsKey)
+        messages = []
+    }
+
+    private func makeSessionSummary(id: UUID, messages: [ChatMessage]) -> ChatSessionSummary {
+        let firstUser = messages.first(where: { $0.role == .user })
+        let lastMeaningful = messages.reversed().first(where: { msg in
+            if !msg.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return true
+            }
+            return !msg.images.isEmpty || !msg.audios.isEmpty
+        })
+
+        let title = sessionTitle(from: firstUser)
+        let preview = sessionPreview(from: lastMeaningful ?? firstUser)
+        let updatedAt = (lastMeaningful ?? firstUser)?.timestamp ?? Date()
+
+        return ChatSessionSummary(
+            id: id,
+            title: title,
+            preview: preview,
+            updatedAt: updatedAt
+        )
+    }
+
+    private func sessionTitle(from message: ChatMessage?) -> String {
+        guard let message else { return "新会话" }
+        let trimmed = message.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            return String(trimmed.prefix(24))
+        }
+        if !message.images.isEmpty && !message.audios.isEmpty {
+            return "图片与语音会话"
+        }
+        if !message.images.isEmpty {
+            return "图片会话"
+        }
+        if !message.audios.isEmpty {
+            return "语音会话"
+        }
+        return "新会话"
+    }
+
+    private func sessionPreview(from message: ChatMessage?) -> String {
+        guard let message else { return "暂无内容" }
+        let trimmed = message.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            return String(trimmed.prefix(80))
+        }
+        if !message.images.isEmpty && !message.audios.isEmpty {
+            return "包含图片与语音"
+        }
+        if !message.images.isEmpty {
+            return "包含图片"
+        }
+        if !message.audios.isEmpty {
+            return "包含语音"
+        }
+        return "暂无内容"
+    }
+
+    private func updateSessionSummary(_ summary: ChatSessionSummary) {
+        if let index = sessionSummaries.firstIndex(where: { $0.id == summary.id }) {
+            sessionSummaries[index] = summary
+        } else {
+            sessionSummaries.append(summary)
+        }
+        sessionSummaries.sort { $0.updatedAt > $1.updatedAt }
+    }
+
+    private func persistSessionsIndex() {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        do {
+            let data = try encoder.encode(sessionSummaries)
+            try data.write(to: sessionsIndexURL(), options: .atomic)
+        } catch {
+            log("[History] index save failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func loadSessionsIndex() -> [ChatSessionSummary] {
+        let url = sessionsIndexURL()
+        guard let data = try? Data(contentsOf: url) else { return [] }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return (try? decoder.decode([ChatSessionSummary].self, from: data)) ?? []
+    }
+
+    private func loadSessionRecord(id: UUID) -> ChatSessionRecord? {
+        let url = sessionFileURL(for: id)
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try? decoder.decode(ChatSessionRecord.self, from: data)
+    }
+
+    private func ensureSessionsDirectory() throws -> URL {
+        let directory = sessionsDirectoryURL()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
+
+    private func sessionsIndexURL() -> URL {
+        sessionsDirectoryURL().appendingPathComponent(sessionsIndexFileName)
+    }
+
+    private func sessionFileURL(for id: UUID) -> URL {
+        sessionsDirectoryURL().appendingPathComponent("\(id.uuidString).json")
+    }
+
+    private func sessionsDirectoryURL() -> URL {
+        let supportDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let appDir = supportDir.appendingPathComponent("PhoneClaw", isDirectory: true)
+        return appDir.appendingPathComponent(sessionsDirectoryName, isDirectory: true)
     }
 
     private func extractSkillName(from text: String) -> String? {

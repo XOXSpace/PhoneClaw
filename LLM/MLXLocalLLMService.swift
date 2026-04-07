@@ -339,6 +339,12 @@ public class MLXLocalLLMService: LLMEngine {
                     self.modelInstallStates[id] = .downloaded
                     self.refreshModelInstallStates()
                 }
+            } catch is CancellationError {
+                try? fm.removeItem(at: partialDirectory)
+                await MainActor.run {
+                    self.modelInstallStates[id] = .notInstalled
+                    self.refreshModelInstallStates()
+                }
             } catch {
                 try? fm.removeItem(at: partialDirectory)
                 await MainActor.run {
@@ -353,6 +359,11 @@ public class MLXLocalLLMService: LLMEngine {
 
         currentDownloadTasks[id] = task
         await task.value
+    }
+
+    public func cancelModelDownload(id: String) {
+        guard currentDownloadTasks[id] != nil else { return }
+        currentDownloadTasks[id]?.cancel()
     }
 
     func loadModel() {

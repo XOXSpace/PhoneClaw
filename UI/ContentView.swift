@@ -24,6 +24,7 @@ struct ContentView: View {
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var showConfigurations = false
     @State private var showSkillsManager = false
+    @State private var showHistory = false
     /// 记录每个 skill 卡片的展开状态（key = SkillCard.id）
     @State private var expandedSkills: Set<UUID> = []
     /// 记录每个 THINK 卡片的展开状态（key = ResponseBlock.id）
@@ -101,8 +102,12 @@ struct ContentView: View {
                 audioCapture.refreshPermissionStatus()
                 return
             }
+            engine.flushPendingSessionSave()
             engine.cancelActiveGeneration()
             _ = audioCapture.stopCapture()
+        }
+        .sheet(isPresented: $showHistory) {
+            SessionHistorySheet(engine: engine)
         }
         .sheet(isPresented: $showConfigurations) {
             ConfigurationsView(engine: engine)
@@ -191,9 +196,12 @@ struct ContentView: View {
 
     private var topBar: some View {
         HStack(spacing: 0) {
-            // 左：新会话
-            Button(action: { engine.clearMessages() }) {
-                Image(systemName: "square.and.pencil")
+            // 左：历史/新会话
+            Button(action: {
+                engine.flushPendingSessionSave()
+                showHistory = true
+            }) {
+                Image(systemName: "clock.arrow.circlepath")
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(Theme.textSecondary)
                     .frame(width: 34, height: 34)
@@ -364,17 +372,38 @@ struct ContentView: View {
                 .onSubmit { Task { await send() } }
             #endif
 
-            Button { Task { await send() } } label: {
-                Image(systemName: "arrow.up")
+            Button {
+                if canCancelGeneration {
+                    engine.cancelActiveGeneration()
+                } else {
+                    Task { await send() }
+                }
+            } label: {
+                Image(systemName: canCancelGeneration ? "stop.fill" : "arrow.up")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(canSend ? Theme.bg : Theme.textTertiary)
+                    .foregroundStyle(
+                        canCancelGeneration || canSend
+                            ? Theme.bg
+                            : Theme.textTertiary
+                    )
                     .frame(width: 34, height: 34)
-                    .background(canSend ? Theme.accent : Theme.bgElevated, in: Circle())
-                    .overlay(Circle().strokeBorder(canSend ? .clear : Theme.border, lineWidth: 1))
+                    .background(
+                        canCancelGeneration
+                            ? Color.red.opacity(0.92)
+                            : (canSend ? Theme.accent : Theme.bgElevated),
+                        in: Circle()
+                    )
+                    .overlay(
+                        Circle().strokeBorder(
+                            canCancelGeneration || canSend ? .clear : Theme.border,
+                            lineWidth: 1
+                        )
+                    )
             }
             .buttonStyle(.plain)
-            .disabled(!canSend)
+            .disabled(!canSend && !canCancelGeneration)
             .animation(.easeInOut(duration: 0.15), value: canSend)
+            .animation(.easeInOut(duration: 0.15), value: canCancelGeneration)
         }
         .padding(.horizontal, Theme.inputPadH)
         .padding(.vertical, 14)
@@ -470,6 +499,10 @@ struct ContentView: View {
         && !engine.isProcessing && engine.llm.isLoaded
     }
 
+    private var canCancelGeneration: Bool {
+        engine.isProcessing || engine.llm.isGenerating
+    }
+
     private func send() async {
         let text = inputText
         let images = selectedImages
@@ -497,6 +530,131 @@ struct ContentView: View {
             print("[UI] Failed to load selected photo: \(error)")
         }
         #endif
+    }
+}
+
+private struct SessionHistorySheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var engine: AgentEngine
+
+    private static let dateFormatter: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.locale = Locale(identifier: Locale.preferredLanguages.first ?? Locale.current.identifier)
+        formatter.unitsStyle = .short
+        return formatter
+    }()
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if engine.sessionSummaries.isEmpty {
+                    emptyState
+                } else {
+                    List {
+                        ForEach(engine.sessionSummaries) { session in
+                            Button {
+                                engine.loadSession(id: session.id)
+                                dismiss()
+                            } label: {
+                                HStack(alignment: .top, spacing: 12) {
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        HStack(spacing: 8) {
+                                            Text(session.title)
+                                                .font(.system(size: 16, weight: .semibold))
+                                                .foregroundStyle(Theme.textPrimary)
+                                                .lineLimit(1)
+                                            if session.id == engine.currentSessionID {
+                                                Text("当前")
+                                                    .font(.system(size: 11, weight: .semibold))
+                                                    .foregroundStyle(Theme.bg)
+                                                    .padding(.horizontal, 6)
+                                                    .padding(.vertical, 2)
+                                                    .background(Theme.accent, in: Capsule())
+                                            }
+                                        }
+
+                                        Text(session.preview)
+                                            .font(.system(size: 13))
+                                            .foregroundStyle(Theme.textSecondary)
+                                            .lineLimit(2)
+
+                                        Text(Self.dateFormatter.localizedString(for: session.updatedAt, relativeTo: Date()))
+                                            .font(.system(size: 11))
+                                            .foregroundStyle(Theme.textTertiary)
+                                    }
+
+                                    Spacer(minLength: 0)
+                                }
+                                .padding(.vertical, 4)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .listRowBackground(Theme.bgElevated)
+                        }
+                        .onDelete { offsets in
+                            for index in offsets {
+                                engine.deleteSession(id: engine.sessionSummaries[index].id)
+                            }
+                        }
+                    }
+                    .scrollContentBackground(.hidden)
+                    .background(Theme.bg)
+                }
+            }
+            .navigationTitle("历史记录")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("关闭") {
+                        dismiss()
+                    }
+                }
+
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        engine.startNewSession()
+                        dismiss()
+                    } label: {
+                        Label("新会话", systemImage: "square.and.pencil")
+                    }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "clock.arrow.circlepath")
+                .font(.system(size: 28, weight: .medium))
+                .foregroundStyle(Theme.textTertiary)
+
+            Text("还没有历史记录")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+
+            Text("开始一次新会话后，聊天内容会自动保存在这里。")
+                .font(.system(size: 14))
+                .foregroundStyle(Theme.textSecondary)
+                .multilineTextAlignment(.center)
+
+            Button {
+                engine.startNewSession()
+                dismiss()
+            } label: {
+                Text("开始新会话")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Theme.bg)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Theme.accent, in: Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(24)
+        .background(Theme.bg)
     }
 }
 
