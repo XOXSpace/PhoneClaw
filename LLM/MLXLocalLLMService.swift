@@ -27,6 +27,13 @@ public enum ModelInstallState: Equatable, Sendable {
     case failed(String)
 }
 
+public struct ModelDownloadMetrics: Equatable, Sendable {
+    public let bytesReceived: Int64
+    public let totalBytes: Int64?
+    public let bytesPerSecond: Double?
+    public let sourceLabel: String?
+}
+
 /// MLX GPU inference service for Gemma 4.
 /// Forces MLX Metal GPU path — no CPU fallback.
 @Observable
@@ -102,6 +109,7 @@ public class MLXLocalLLMService: LLMEngine {
     public var selectedModelID: String { selectedModel.id }
     public var loadedModelID: String? { loadedModel?.id }
     public private(set) var modelInstallStates: [String: ModelInstallState] = [:]
+    public private(set) var modelDownloadMetrics: [String: ModelDownloadMetrics] = [:]
 
     // MARK: - Compatibility Settings
 
@@ -120,6 +128,104 @@ public class MLXLocalLLMService: LLMEngine {
     private var foregroundGPUAllowed = true
     private var lifecycleObserverTokens: [NSObjectProtocol] = []
     private var audioCapabilityEnabled = false
+
+    private struct DownloadSource: Sendable {
+        let label: String
+        let url: URL
+    }
+
+    private final class DownloadTaskClient: NSObject, URLSessionDownloadDelegate {
+        private let progressHandler: @Sendable (Int64, Int64?) -> Void
+        private var continuation: CheckedContinuation<(URL, URLResponse), Error>?
+        private var downloadedFileURL: URL?
+        private var response: URLResponse?
+        private lazy var session: URLSession = {
+            URLSession(configuration: .ephemeral, delegate: self, delegateQueue: nil)
+        }()
+        private var task: URLSessionDownloadTask?
+
+        init(progressHandler: @escaping @Sendable (Int64, Int64?) -> Void) {
+            self.progressHandler = progressHandler
+        }
+
+        func start(request: URLRequest) async throws -> (URL, URLResponse) {
+            try await withTaskCancellationHandler {
+                try await withCheckedThrowingContinuation { continuation in
+                    self.continuation = continuation
+                    let task = session.downloadTask(with: request)
+                    self.task = task
+                    task.resume()
+                }
+            } onCancel: {
+                self.cancel()
+            }
+        }
+
+        func cancel() {
+            task?.cancel()
+            session.invalidateAndCancel()
+        }
+
+        func urlSession(
+            _ session: URLSession,
+            downloadTask: URLSessionDownloadTask,
+            didWriteData bytesWritten: Int64,
+            totalBytesWritten: Int64,
+            totalBytesExpectedToWrite: Int64
+        ) {
+            let expected = totalBytesExpectedToWrite > 0 ? totalBytesExpectedToWrite : nil
+            progressHandler(totalBytesWritten, expected)
+        }
+
+        func urlSession(
+            _ session: URLSession,
+            downloadTask: URLSessionDownloadTask,
+            didFinishDownloadingTo location: URL
+        ) {
+            do {
+                let temporaryFileURL = FileManager.default.temporaryDirectory
+                    .appendingPathComponent(UUID().uuidString)
+                    .appendingPathExtension(location.pathExtension.isEmpty ? "tmp" : location.pathExtension)
+
+                if FileManager.default.fileExists(atPath: temporaryFileURL.path) {
+                    try FileManager.default.removeItem(at: temporaryFileURL)
+                }
+
+                try FileManager.default.moveItem(at: location, to: temporaryFileURL)
+                downloadedFileURL = temporaryFileURL
+                response = downloadTask.response
+            } catch {
+                downloadedFileURL = nil
+                response = nil
+                continuation?.resume(throwing: error)
+                continuation = nil
+                self.task = nil
+                session.finishTasksAndInvalidate()
+            }
+        }
+
+        func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+            defer {
+                continuation = nil
+                downloadedFileURL = nil
+                response = nil
+                self.task = nil
+                session.finishTasksAndInvalidate()
+            }
+
+            if let error {
+                continuation?.resume(throwing: error)
+                return
+            }
+
+            guard let downloadedFileURL, let response else {
+                continuation?.resume(throwing: DownloadError.invalidResponse)
+                return
+            }
+
+            continuation?.resume(returning: (downloadedFileURL, response))
+        }
+    }
 
     /// Local path to the model directory
     private var modelPath: URL {
@@ -251,6 +357,10 @@ public class MLXLocalLLMService: LLMEngine {
         }
     }
 
+    public func downloadMetrics(for modelID: String) -> ModelDownloadMetrics? {
+        modelDownloadMetrics[modelID]
+    }
+
     private func cleanupStalePartialDirectories() {
         let fm = FileManager.default
         for model in Self.availableModels {
@@ -261,9 +371,25 @@ public class MLXLocalLLMService: LLMEngine {
         }
     }
 
-    private func huggingFaceURL(for model: BundledModelOption, file: String) -> URL? {
-        let rawPath = "\(model.repositoryID)/resolve/main/\(file)"
-        return URL(string: "https://huggingface.co/" + rawPath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!.replacingOccurrences(of: "%2F", with: "/"))
+    private func preferredDownloadSources(for model: BundledModelOption, file: String) -> [DownloadSource] {
+        let encodedPath = "\(model.repositoryID)/resolve/main/\(file)"
+            .addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)?
+            .replacingOccurrences(of: "%2F", with: "/")
+
+        guard let encodedPath else { return [] }
+
+        return [
+            .init(label: "hf-mirror.com", url: URL(string: "https://hf-mirror.com/\(encodedPath)")!),
+            .init(label: "huggingface.co", url: URL(string: "https://huggingface.co/\(encodedPath)")!)
+        ]
+    }
+
+    private func downloadFile(
+        with request: URLRequest,
+        progress: @escaping @Sendable (Int64, Int64?) -> Void
+    ) async throws -> (URL, URLResponse) {
+        let client = DownloadTaskClient(progressHandler: progress)
+        return try await client.start(request: request)
     }
 
     public func downloadModel(id: String) async {
@@ -298,20 +424,64 @@ public class MLXLocalLLMService: LLMEngine {
 
                 let totalFiles = model.requiredFiles.count
                 for (index, file) in model.requiredFiles.enumerated() {
-                    guard let url = huggingFaceURL(for: model, file: file) else {
+                    let downloadSources = preferredDownloadSources(for: model, file: file)
+                    guard !downloadSources.isEmpty else {
                         throw DownloadError.invalidURL(file)
                     }
 
-                    await MainActor.run {
-                        self.modelInstallStates[id] = .downloading(
-                            completedFiles: index,
-                            totalFiles: totalFiles,
-                            currentFile: file
+                    var downloadedResult: (URL, URLResponse)?
+                    var lastError: Error?
+
+                    for source in downloadSources {
+                        try Task.checkCancellation()
+
+                        await MainActor.run {
+                            self.modelInstallStates[id] = .downloading(
+                                completedFiles: index,
+                                totalFiles: totalFiles,
+                                currentFile: file
+                            )
+                            self.modelDownloadMetrics[id] = .init(
+                                bytesReceived: 0,
+                                totalBytes: nil,
+                                bytesPerSecond: nil,
+                                sourceLabel: source.label
+                            )
+                        }
+
+                        let request = URLRequest(
+                            url: source.url,
+                            cachePolicy: .reloadIgnoringLocalCacheData,
+                            timeoutInterval: 1800
                         )
+                        let startTime = Date()
+
+                        do {
+                            let result = try await downloadFile(with: request) { received, expected in
+                                let elapsed = max(Date().timeIntervalSince(startTime), 0.001)
+                                let bytesPerSecond = Double(received) / elapsed
+                                Task { @MainActor [weak self] in
+                                    self?.modelDownloadMetrics[id] = .init(
+                                        bytesReceived: received,
+                                        totalBytes: expected,
+                                        bytesPerSecond: bytesPerSecond,
+                                        sourceLabel: source.label
+                                    )
+                                }
+                            }
+                            downloadedResult = result
+                            break
+                        } catch is CancellationError {
+                            throw CancellationError()
+                        } catch {
+                            lastError = error
+                        }
                     }
 
-                    let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 1800)
-                    let (temporaryURL, response) = try await URLSession.shared.download(for: request)
+                    guard let (temporaryURL, response) = downloadedResult else {
+                        throw lastError ?? DownloadError.invalidResponse
+                    }
+
                     guard let http = response as? HTTPURLResponse else {
                         throw DownloadError.invalidResponse
                     }
@@ -337,17 +507,20 @@ public class MLXLocalLLMService: LLMEngine {
 
                 await MainActor.run {
                     self.modelInstallStates[id] = .downloaded
+                    self.modelDownloadMetrics[id] = nil
                     self.refreshModelInstallStates()
                 }
             } catch is CancellationError {
                 try? fm.removeItem(at: partialDirectory)
                 await MainActor.run {
                     self.modelInstallStates[id] = .notInstalled
+                    self.modelDownloadMetrics[id] = nil
                     self.refreshModelInstallStates()
                 }
             } catch {
                 try? fm.removeItem(at: partialDirectory)
                 await MainActor.run {
+                    self.modelDownloadMetrics[id] = nil
                     self.modelInstallStates[id] = .failed(error.localizedDescription)
                 }
             }

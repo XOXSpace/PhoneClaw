@@ -187,6 +187,10 @@ struct ConfigurationsView: View {
             VStack(spacing: 10) {
                 ForEach(engine.availableModels) { model in
                     let state = engine.llm.installState(for: model)
+                    let isDownloading: Bool = {
+                        if case .downloading = state { return true }
+                        return false
+                    }()
                     VStack(alignment: .leading, spacing: 10) {
                         HStack(spacing: 12) {
                             VStack(alignment: .leading, spacing: 4) {
@@ -200,9 +204,7 @@ struct ConfigurationsView: View {
 
                             Spacer()
 
-                            VStack(alignment: .trailing, spacing: 8) {
-                                modelStateControl(for: model, state: state)
-
+                            if isDownloading {
                                 if selectedModelID == model.id {
                                     Image(systemName: "checkmark.circle.fill")
                                         .foregroundStyle(Theme.accent)
@@ -210,7 +212,27 @@ struct ConfigurationsView: View {
                                     Image(systemName: "circle")
                                         .foregroundStyle(Theme.textTertiary)
                                 }
+                            } else {
+                                VStack(alignment: .trailing, spacing: 8) {
+                                    modelStateControl(for: model, state: state)
+
+                                    if selectedModelID == model.id {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundStyle(Theme.accent)
+                                    } else {
+                                        Image(systemName: "circle")
+                                            .foregroundStyle(Theme.textTertiary)
+                                    }
+                                }
                             }
+                        }
+
+                        if case let .downloading(completedFiles, totalFiles, _) = state {
+                            downloadProgressBadge(
+                                modelID: model.id,
+                                completedFiles: completedFiles,
+                                totalFiles: totalFiles
+                            )
                         }
 
                         if let detail = modelStateDetail(state) {
@@ -425,32 +447,70 @@ struct ConfigurationsView: View {
     ) -> some View {
         let safeTotal = max(totalFiles, 1)
         let value = Double(min(completedFiles, safeTotal))
-        return HStack(spacing: 8) {
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(localized(
-                    "下载中 \(completedFiles)/\(totalFiles)",
-                    "Downloading \(completedFiles)/\(totalFiles)"
-                ))
+        let metrics = engine.llm.downloadMetrics(for: modelID)
+
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(localized(
+                        "下载中 \(completedFiles)/\(totalFiles)",
+                        "Downloading \(completedFiles)/\(totalFiles)"
+                    ))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+
+                    if let metrics {
+                        Text(downloadMetricsText(metrics))
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(Theme.textTertiary)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer(minLength: 8)
+
+                Button(localized("取消", "Cancel")) {
+                    engine.llm.cancelModelDownload(id: modelID)
+                }
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(Theme.textTertiary)
-
-                ProgressView(value: value, total: Double(safeTotal))
-                    .progressViewStyle(.linear)
-                    .frame(width: 110)
+                .foregroundStyle(Theme.textPrimary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Theme.bg, in: Capsule())
+                .fixedSize(horizontal: true, vertical: true)
             }
 
-            Button(localized("取消", "Cancel")) {
-                engine.llm.cancelModelDownload(id: modelID)
-            }
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(Theme.textPrimary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(Theme.bg, in: Capsule())
+            ProgressView(value: value, total: Double(safeTotal))
+                .progressViewStyle(.linear)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .background(Theme.textTertiary.opacity(0.14), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func downloadMetricsText(_ metrics: ModelDownloadMetrics) -> String {
+        let speedText = formattedSpeed(metrics.bytesPerSecond)
+        if let totalBytes = metrics.totalBytes, totalBytes > 0 {
+            return "\(formattedBytes(metrics.bytesReceived)) / \(formattedBytes(totalBytes)) · \(speedText)"
+        }
+        return "\(formattedBytes(metrics.bytesReceived)) · \(speedText)"
+    }
+
+    private func formattedBytes(_ bytes: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useKB, .useMB, .useGB]
+        formatter.countStyle = .file
+        formatter.includesUnit = true
+        formatter.isAdaptive = true
+        return formatter.string(fromByteCount: bytes)
+    }
+
+    private func formattedSpeed(_ bytesPerSecond: Double?) -> String {
+        guard let bytesPerSecond, bytesPerSecond > 0 else {
+            return localized("计算中…", "Calculating…")
+        }
+        return localized("速度 ", "Speed ") + formattedBytes(Int64(bytesPerSecond)) + "/s"
     }
 
     private func modelStateDetail(_ state: ModelInstallState) -> String? {
@@ -458,9 +518,9 @@ struct ConfigurationsView: View {
         case .notInstalled:
             return localized("未安装", "Not Installed")
         case .checkingSource:
-            return localized("正在检查模型下载源。", "Checking the model download source.")
-        case .downloading(_, _, let currentFile):
-            return localized("正在下载：", "Downloading: ") + currentFile
+            return localized("正在准备下载。", "Preparing download.")
+        case .downloading:
+            return nil
         case .downloaded:
             return localized("已下载到手机本地，可直接加载。", "Downloaded on device and ready to load.")
         case .bundled:
