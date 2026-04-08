@@ -43,7 +43,7 @@ struct SkillsManagerView: View {
                                 isExpanded: expandedSkills.contains(engine.skillEntries[i].id),
                                 onToggleExpand: { toggleExpand(engine.skillEntries[i].id) },
                                 onSave: { content in
-                                    try? engine.skillLoader.saveSkill(skillId: engine.skillEntries[i].id, content: content)
+                                    try? engine.skillRegistry.saveSkill(skillId: engine.skillEntries[i].id, content: content)
                                     engine.reloadSkills()
                                 }
                             )

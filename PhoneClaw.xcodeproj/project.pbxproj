@@ -11,13 +11,30 @@
 		2F4A6C8E0A1B2C3D4E5F6071 /* AudioCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F4A6C8E0A1B2C3D4E5F6070 /* AudioCaptureService.swift */; };
 		45B7FEC6C4D055F44A87BFA9 /* PhoneClawApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DD9808FE93325C3CE4CFA00 /* PhoneClawApp.swift */; };
 		5084E1CD2E831BC05F5E4374 /* PromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7C06DA449D1395217A42D5 /* PromptBuilder.swift */; };
+		6A7B8C9D0E1F203142536475 /* gemma-4-e4b-it-4bit in Resources */ = {isa = PBXBuildFile; fileRef = D5E6F7081A2B3C4D5E6F7086 /* gemma-4-e4b-it-4bit */; };
 		9412304167DACB86E5D60D49 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5ED928BF14864713A9A9D16 /* ContentView.swift */; };
 		97E96A2FBFFAF609F276A896 /* ConfigurationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E62C3CEFC7AE63873D751E75 /* ConfigurationsView.swift */; };
+		A31476EA2F856FD700318978 /* ChatAttachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31476E82F856FD700318978 /* ChatAttachments.swift */; };
+		A31476EB2F856FD700318978 /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31476E92F856FD700318978 /* ChatMessage.swift */; };
+		A31476F62F85741500318978 /* Planner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31476F02F85741500318978 /* Planner.swift */; };
+		A31476F82F85741500318978 /* Router.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31476F12F85741500318978 /* Router.swift */; };
+		A31476F92F85741500318978 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31476F22F85741500318978 /* SessionStore.swift */; };
+		A31476FA2F85741500318978 /* ToolChain.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31476F42F85741500318978 /* ToolChain.swift */; };
+		A31476FB2F85741500318978 /* OutputCleaner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31476EF2F85741500318978 /* OutputCleaner.swift */; };
+		A31476FC2F85741500318978 /* ToolCallParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31476F32F85741500318978 /* ToolCallParser.swift */; };
 		AA1000000000000000000001 /* LLMEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000001 /* LLMEngine.swift */; };
 		AA1000000000000000000002 /* MLXLocalLLMService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000002 /* MLXLocalLLMService.swift */; };
 		AA1000000000000000000003 /* Gemma4Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000003 /* Gemma4Config.swift */; };
 		AA1000000000000000000004 /* Gemma4LanguageModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000004 /* Gemma4LanguageModel.swift */; };
 		AA1000000000000000000005 /* Gemma4Model.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000005 /* Gemma4Model.swift */; };
+		AA1000000000000000000100 /* BundledModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000100 /* BundledModel.swift */; };
+		AA1000000000000000000101 /* RuntimeBudgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000101 /* RuntimeBudgets.swift */; };
+		AA1000000000000000000103 /* ModelInstallState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000103 /* ModelInstallState.swift */; };
+		AA1000000000000000000104 /* ModelPaths.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000104 /* ModelPaths.swift */; };
+		AA1000000000000000000105 /* MemoryStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000105 /* MemoryStats.swift */; };
+		AA1000000000000000000106 /* ModelDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000106 /* ModelDownloader.swift */; };
+		AA1000000000000000000107 /* ModelInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000107 /* ModelInstaller.swift */; };
+		AA1000000000000000000108 /* GPULifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000108 /* GPULifecycle.swift */; };
 		AA1000000000000000000006 /* Gemma4Registration.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000006 /* Gemma4Registration.swift */; };
 		AA1000000000000000000007 /* Gemma4RoPE.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000007 /* Gemma4RoPE.swift */; };
 		AA1000000000000000000008 /* Gemma4TextModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000008 /* Gemma4TextModel.swift */; };
@@ -37,10 +54,21 @@
 		B8A84E4D0DDDE011B5929DA2 /* AgentEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = E18A47114A10132E25E220F8 /* AgentEngine.swift */; };
 		BD75E7E5620A8FF0A868E9F0 /* libPods-PhoneClaw.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4F4ACB3F4531FF61E0AADA07 /* libPods-PhoneClaw.a */; };
 		C1A2B3D4E5F607182930A1B2 /* SkillLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3D4E5F607182930A1B3 /* SkillLoader.swift */; };
-		C2B3C4D5E6F718293041B2C3 /* ToolRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2B3C4D5E6F718293041B2C4 /* ToolRegistry.swift */; };
+		C1A2B3D4E5F607182930A1C2 /* SkillRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3D4E5F607182930A1C3 /* SkillRegistry.swift */; };
+		D3A1B2C3D4E5F60718290001 /* ToolRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3A1B2C3D4E5F60718290101 /* ToolRegistry.swift */; };
+		D3A1B2C3D4E5F60718290002 /* AppPermissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3A1B2C3D4E5F60718290102 /* AppPermissions.swift */; };
+		D3A1B2C3D4E5F60718290003 /* Stores.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3A1B2C3D4E5F60718290103 /* Stores.swift */; };
+		D3A1B2C3D4E5F60718290004 /* Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3A1B2C3D4E5F60718290104 /* Helpers.swift */; };
+		D3A1B2C3D4E5F60718290005 /* Clipboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3A1B2C3D4E5F60718290105 /* Clipboard.swift */; };
+		D3A1B2C3D4E5F60718290006 /* Device.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3A1B2C3D4E5F60718290106 /* Device.swift */; };
+		D3A1B2C3D4E5F60718290007 /* Text.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3A1B2C3D4E5F60718290107 /* Text.swift */; };
+		D3A1B2C3D4E5F60718290008 /* Calendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3A1B2C3D4E5F60718290108 /* Calendar.swift */; };
+		D3A1B2C3D4E5F60718290009 /* Reminders.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3A1B2C3D4E5F60718290109 /* Reminders.swift */; };
+		D3A1B2C3D4E5F60718290010 /* Contacts.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3A1B2C3D4E5F60718290110 /* Contacts.swift */; };
 		C3C4D5E6F7081A2B3C52D3E4 /* ChatModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C4D5E6F7081A2B3C52D3E5 /* ChatModels.swift */; };
 		C4D5E6F70819A2B3C463E4F5 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F70819A2B3C463E4F6 /* Theme.swift */; };
 		ICONASSETS0000000000002 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ICONASSETS0000000000001 /* Assets.xcassets */; };
+		B1A2C3D4E5F607182930B100 /* Library in Resources */ = {isa = PBXBuildFile; fileRef = B1A2C3D4E5F607182930B101 /* Library */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -54,11 +82,27 @@
 		52F30C6348B834E5D157205F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		571908036E6DCED1D58C1E9E /* Skills.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Skills.swift; sourceTree = "<group>"; };
 		A1AB7F250BEEFF938318AA75 /* Pods-PhoneClaw.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PhoneClaw.debug.xcconfig"; path = "Target Support Files/Pods-PhoneClaw/Pods-PhoneClaw.debug.xcconfig"; sourceTree = "<group>"; };
+		A31476E82F856FD700318978 /* ChatAttachments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatAttachments.swift; sourceTree = "<group>"; };
+		A31476E92F856FD700318978 /* ChatMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessage.swift; sourceTree = "<group>"; };
+		A31476EF2F85741500318978 /* OutputCleaner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputCleaner.swift; sourceTree = "<group>"; };
+		A31476F02F85741500318978 /* Planner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Planner.swift; sourceTree = "<group>"; };
+		A31476F12F85741500318978 /* Router.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Router.swift; sourceTree = "<group>"; };
+		A31476F22F85741500318978 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
+		A31476F32F85741500318978 /* ToolCallParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolCallParser.swift; sourceTree = "<group>"; };
+		A31476F42F85741500318978 /* ToolChain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolChain.swift; sourceTree = "<group>"; };
 		AA2000000000000000000001 /* LLMEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMEngine.swift; sourceTree = "<group>"; };
 		AA2000000000000000000002 /* MLXLocalLLMService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLXLocalLLMService.swift; sourceTree = "<group>"; };
 		AA2000000000000000000003 /* Gemma4Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gemma4Config.swift; sourceTree = "<group>"; };
 		AA2000000000000000000004 /* Gemma4LanguageModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gemma4LanguageModel.swift; sourceTree = "<group>"; };
 		AA2000000000000000000005 /* Gemma4Model.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gemma4Model.swift; sourceTree = "<group>"; };
+		AA2000000000000000000100 /* BundledModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundledModel.swift; sourceTree = "<group>"; };
+		AA2000000000000000000101 /* RuntimeBudgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeBudgets.swift; sourceTree = "<group>"; };
+		AA2000000000000000000103 /* ModelInstallState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelInstallState.swift; sourceTree = "<group>"; };
+		AA2000000000000000000104 /* ModelPaths.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelPaths.swift; sourceTree = "<group>"; };
+		AA2000000000000000000105 /* MemoryStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryStats.swift; sourceTree = "<group>"; };
+		AA2000000000000000000106 /* ModelDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelDownloader.swift; sourceTree = "<group>"; };
+		AA2000000000000000000107 /* ModelInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelInstaller.swift; sourceTree = "<group>"; };
+		AA2000000000000000000108 /* GPULifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GPULifecycle.swift; sourceTree = "<group>"; };
 		AA2000000000000000000006 /* Gemma4Registration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gemma4Registration.swift; sourceTree = "<group>"; };
 		AA2000000000000000000007 /* Gemma4RoPE.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gemma4RoPE.swift; sourceTree = "<group>"; };
 		AA2000000000000000000008 /* Gemma4TextModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gemma4TextModel.swift; sourceTree = "<group>"; };
@@ -68,7 +112,17 @@
 		AA2000000000000000000020 /* Gemma4AudioFeatureExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gemma4AudioFeatureExtractor.swift; sourceTree = "<group>"; };
 		AA2000000000000000000021 /* Gemma4AudioModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gemma4AudioModel.swift; sourceTree = "<group>"; };
 		C1A2B3D4E5F607182930A1B3 /* SkillLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillLoader.swift; sourceTree = "<group>"; };
-		C2B3C4D5E6F718293041B2C4 /* ToolRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolRegistry.swift; sourceTree = "<group>"; };
+		C1A2B3D4E5F607182930A1C3 /* SkillRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillRegistry.swift; sourceTree = "<group>"; };
+		D3A1B2C3D4E5F60718290101 /* ToolRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolRegistry.swift; sourceTree = "<group>"; };
+		D3A1B2C3D4E5F60718290102 /* AppPermissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPermissions.swift; sourceTree = "<group>"; };
+		D3A1B2C3D4E5F60718290103 /* Stores.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Stores.swift; sourceTree = "<group>"; };
+		D3A1B2C3D4E5F60718290104 /* Helpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Helpers.swift; sourceTree = "<group>"; };
+		D3A1B2C3D4E5F60718290105 /* Clipboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipboard.swift; sourceTree = "<group>"; };
+		D3A1B2C3D4E5F60718290106 /* Device.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Device.swift; sourceTree = "<group>"; };
+		D3A1B2C3D4E5F60718290107 /* Text.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Text.swift; sourceTree = "<group>"; };
+		D3A1B2C3D4E5F60718290108 /* Calendar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Calendar.swift; sourceTree = "<group>"; };
+		D3A1B2C3D4E5F60718290109 /* Reminders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Reminders.swift; sourceTree = "<group>"; };
+		D3A1B2C3D4E5F60718290110 /* Contacts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Contacts.swift; sourceTree = "<group>"; };
 		C3C4D5E6F7081A2B3C52D3E5 /* ChatModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatModels.swift; sourceTree = "<group>"; };
 		C4D5E6F70819A2B3C463E4F6 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		D269F8BFCAB68D82440F704B /* SkillsManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillsManagerView.swift; sourceTree = "<group>"; };
@@ -78,6 +132,7 @@
 		E62C3CEFC7AE63873D751E75 /* ConfigurationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationsView.swift; sourceTree = "<group>"; };
 		F5ED928BF14864713A9A9D16 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		ICONASSETS0000000000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B1A2C3D4E5F607182930B101 /* Library */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Library; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -131,29 +186,103 @@
 		98EFD7CCA7E78715F07BABE3 /* Skills */ = {
 			isa = PBXGroup;
 			children = (
+				B1A2C3D4E5F607182930B101 /* Library */,
 				571908036E6DCED1D58C1E9E /* Skills.swift */,
 				C1A2B3D4E5F607182930A1B3 /* SkillLoader.swift */,
-				C2B3C4D5E6F718293041B2C4 /* ToolRegistry.swift */,
+				C1A2B3D4E5F607182930A1C3 /* SkillRegistry.swift */,
 			);
 			path = Skills;
+			sourceTree = "<group>";
+		};
+		D3A1B2C3D4E5F60718290200 /* Tools */ = {
+			isa = PBXGroup;
+			children = (
+				D3A1B2C3D4E5F60718290101 /* ToolRegistry.swift */,
+				D3A1B2C3D4E5F60718290102 /* AppPermissions.swift */,
+				D3A1B2C3D4E5F60718290103 /* Stores.swift */,
+				D3A1B2C3D4E5F60718290104 /* Helpers.swift */,
+				D3A1B2C3D4E5F60718290300 /* Handlers */,
+			);
+			path = Tools;
+			sourceTree = "<group>";
+		};
+		D3A1B2C3D4E5F60718290300 /* Handlers */ = {
+			isa = PBXGroup;
+			children = (
+				D3A1B2C3D4E5F60718290105 /* Clipboard.swift */,
+				D3A1B2C3D4E5F60718290106 /* Device.swift */,
+				D3A1B2C3D4E5F60718290107 /* Text.swift */,
+				D3A1B2C3D4E5F60718290108 /* Calendar.swift */,
+				D3A1B2C3D4E5F60718290109 /* Reminders.swift */,
+				D3A1B2C3D4E5F60718290110 /* Contacts.swift */,
+			);
+			path = Handlers;
+			sourceTree = "<group>";
+		};
+		A31476ED2F85741500318978 /* Engine */ = {
+			isa = PBXGroup;
+			children = (
+				A31476EF2F85741500318978 /* OutputCleaner.swift */,
+				A31476F02F85741500318978 /* Planner.swift */,
+				A31476F12F85741500318978 /* Router.swift */,
+				A31476F22F85741500318978 /* SessionStore.swift */,
+				A31476F32F85741500318978 /* ToolCallParser.swift */,
+				A31476F42F85741500318978 /* ToolChain.swift */,
+				A31476E82F856FD700318978 /* ChatAttachments.swift */,
+				A31476E92F856FD700318978 /* ChatMessage.swift */,
+			);
+			path = Engine;
 			sourceTree = "<group>";
 		};
 		AA3000000000000000000001 /* MLX */ = {
 			isa = PBXGroup;
 			children = (
-				AA2000000000000000000003 /* Gemma4Config.swift */,
-				AA2000000000000000000004 /* Gemma4LanguageModel.swift */,
-				AA2000000000000000000020 /* Gemma4AudioFeatureExtractor.swift */,
-				AA2000000000000000000021 /* Gemma4AudioModel.swift */,
-				AA2000000000000000000005 /* Gemma4Model.swift */,
-				AA2000000000000000000006 /* Gemma4Registration.swift */,
-				AA2000000000000000000007 /* Gemma4RoPE.swift */,
-				AA2000000000000000000008 /* Gemma4TextModel.swift */,
-				AA2000000000000000000018 /* Gemma4VisionModel.swift */,
-				AA2000000000000000000019 /* Gemma4Processor.swift */,
-				AA2000000000000000000009 /* MLXTokenizersLoader.swift */,
+				AA3000000000000000000010 /* Core */,
+				AA3000000000000000000011 /* Installation */,
+				AA3000000000000000000012 /* Gemma4 */,
+				AA2000000000000000000002 /* MLXLocalLLMService.swift */,
 			);
 			path = MLX;
+			sourceTree = "<group>";
+		};
+		AA3000000000000000000010 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				AA2000000000000000000100 /* BundledModel.swift */,
+				AA2000000000000000000101 /* RuntimeBudgets.swift */,
+				AA2000000000000000000105 /* MemoryStats.swift */,
+				AA2000000000000000000108 /* GPULifecycle.swift */,
+				AA2000000000000000000009 /* MLXTokenizersLoader.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		AA3000000000000000000011 /* Installation */ = {
+			isa = PBXGroup;
+			children = (
+				AA2000000000000000000104 /* ModelPaths.swift */,
+				AA2000000000000000000103 /* ModelInstallState.swift */,
+				AA2000000000000000000107 /* ModelInstaller.swift */,
+				AA2000000000000000000106 /* ModelDownloader.swift */,
+			);
+			path = Installation;
+			sourceTree = "<group>";
+		};
+		AA3000000000000000000012 /* Gemma4 */ = {
+			isa = PBXGroup;
+			children = (
+				AA2000000000000000000003 /* Gemma4Config.swift */,
+				AA2000000000000000000005 /* Gemma4Model.swift */,
+				AA2000000000000000000004 /* Gemma4LanguageModel.swift */,
+				AA2000000000000000000008 /* Gemma4TextModel.swift */,
+				AA2000000000000000000018 /* Gemma4VisionModel.swift */,
+				AA2000000000000000000021 /* Gemma4AudioModel.swift */,
+				AA2000000000000000000020 /* Gemma4AudioFeatureExtractor.swift */,
+				AA2000000000000000000007 /* Gemma4RoPE.swift */,
+				AA2000000000000000000019 /* Gemma4Processor.swift */,
+				AA2000000000000000000006 /* Gemma4Registration.swift */,
+			);
+			path = Gemma4;
 			sourceTree = "<group>";
 		};
 		AC5E0AA2711EA01E891DE3A7 /* Products */ = {
@@ -169,7 +298,6 @@
 			children = (
 				AA2000000000000000000001 /* LLMEngine.swift */,
 				AA3000000000000000000001 /* MLX */,
-				AA2000000000000000000002 /* MLXLocalLLMService.swift */,
 				2E7C06DA449D1395217A42D5 /* PromptBuilder.swift */,
 			);
 			path = LLM;
@@ -185,6 +313,7 @@
 				6FA4C5AFA3123551D8F8F2F2 /* App */,
 				AE5FF3067EFF33D507435528 /* LLM */,
 				98EFD7CCA7E78715F07BABE3 /* Skills */,
+				D3A1B2C3D4E5F60718290200 /* Tools */,
 				EF4D07A808616D6F13771DBE /* UI */,
 			);
 			name = PhoneClaw;
@@ -193,6 +322,7 @@
 		E0660A5AE3C683B7B20600EE /* Agent */ = {
 			isa = PBXGroup;
 			children = (
+				A31476ED2F85741500318978 /* Engine */,
 				2F4A6C8E0A1B2C3D4E5F6070 /* AudioCaptureService.swift */,
 				E18A47114A10132E25E220F8 /* AgentEngine.swift */,
 			);
@@ -287,7 +417,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6A7B8C9D0E1F203142536475 /* gemma-4-e4b-it-4bit in Resources */,
 				ICONASSETS0000000000002 /* Assets.xcassets in Resources */,
+				B1A2C3D4E5F607182930B100 /* Library in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -332,7 +464,21 @@
 				AA1000000000000000000004 /* Gemma4LanguageModel.swift in Sources */,
 				AA1000000000000000000020 /* Gemma4AudioFeatureExtractor.swift in Sources */,
 				AA1000000000000000000021 /* Gemma4AudioModel.swift in Sources */,
+				A31476F62F85741500318978 /* Planner.swift in Sources */,
+				A31476F82F85741500318978 /* Router.swift in Sources */,
+				A31476F92F85741500318978 /* SessionStore.swift in Sources */,
+				A31476FA2F85741500318978 /* ToolChain.swift in Sources */,
+				A31476FB2F85741500318978 /* OutputCleaner.swift in Sources */,
+				A31476FC2F85741500318978 /* ToolCallParser.swift in Sources */,
 				AA1000000000000000000005 /* Gemma4Model.swift in Sources */,
+				AA1000000000000000000100 /* BundledModel.swift in Sources */,
+				AA1000000000000000000101 /* RuntimeBudgets.swift in Sources */,
+				AA1000000000000000000103 /* ModelInstallState.swift in Sources */,
+				AA1000000000000000000104 /* ModelPaths.swift in Sources */,
+				AA1000000000000000000105 /* MemoryStats.swift in Sources */,
+				AA1000000000000000000106 /* ModelDownloader.swift in Sources */,
+				AA1000000000000000000107 /* ModelInstaller.swift in Sources */,
+				AA1000000000000000000108 /* GPULifecycle.swift in Sources */,
 				AA1000000000000000000006 /* Gemma4Registration.swift in Sources */,
 				AA1000000000000000000018 /* Gemma4VisionModel.swift in Sources */,
 				AA1000000000000000000019 /* Gemma4Processor.swift in Sources */,
@@ -344,10 +490,22 @@
 				45B7FEC6C4D055F44A87BFA9 /* PhoneClawApp.swift in Sources */,
 				5084E1CD2E831BC05F5E4374 /* PromptBuilder.swift in Sources */,
 				C1A2B3D4E5F607182930A1B2 /* SkillLoader.swift in Sources */,
+				C1A2B3D4E5F607182930A1C2 /* SkillRegistry.swift in Sources */,
 				20B8C55E032BA07B3E640E80 /* Skills.swift in Sources */,
 				B881A2E7F9483D5ED2AC206B /* SkillsManagerView.swift in Sources */,
+				A31476EA2F856FD700318978 /* ChatAttachments.swift in Sources */,
+				A31476EB2F856FD700318978 /* ChatMessage.swift in Sources */,
 				C4D5E6F70819A2B3C463E4F5 /* Theme.swift in Sources */,
-				C2B3C4D5E6F718293041B2C3 /* ToolRegistry.swift in Sources */,
+				D3A1B2C3D4E5F60718290001 /* ToolRegistry.swift in Sources */,
+				D3A1B2C3D4E5F60718290002 /* AppPermissions.swift in Sources */,
+				D3A1B2C3D4E5F60718290003 /* Stores.swift in Sources */,
+				D3A1B2C3D4E5F60718290004 /* Helpers.swift in Sources */,
+				D3A1B2C3D4E5F60718290005 /* Clipboard.swift in Sources */,
+				D3A1B2C3D4E5F60718290006 /* Device.swift in Sources */,
+				D3A1B2C3D4E5F60718290007 /* Text.swift in Sources */,
+				D3A1B2C3D4E5F60718290008 /* Calendar.swift in Sources */,
+				D3A1B2C3D4E5F60718290009 /* Reminders.swift in Sources */,
+				D3A1B2C3D4E5F60718290010 /* Contacts.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -482,6 +640,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = PhoneClaw.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = ZP4QNJ35TH;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -501,6 +660,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = PhoneClaw.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = ZP4QNJ35TH;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

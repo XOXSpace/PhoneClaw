@@ -54,3 +54,7 @@ LiteRT-LM/
 *.dylib
 *.a
 *.o
+
+# ─── PhoneClawCLI (本地开发测试工具, 不入仓库) ───────────────────
+PhoneClawCLI/
+

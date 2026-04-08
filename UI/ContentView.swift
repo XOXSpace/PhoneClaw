@@ -290,17 +290,33 @@ struct ContentView: View {
 
     // MARK: - Skill 快捷标签
 
+    /// chip 显示用的简写标签 (UI 表现层选择, 不影响核心数据)。
+    /// key = SkillEntry.id, value = 在 chip pill 上显示的短动作短语。
+    /// 没在表里的 skill 会 fallback 到 skill.displayName。
+    /// chip 实际发送的 prompt 仍然是 skill.samplePrompt (完整、自包含)。
+    private static let chipShortLabels: [String: String] = [
+        "calendar":  "帮我创建日程",
+        "contacts":  "帮我保存联系人",
+        "reminders": "帮我创建提醒事项",
+        "device":    "查询我手机信息",
+    ]
+
+    /// chip 隐藏名单 (UI 表现层选择): 这些 skill 不会出现在欢迎页 chip 列表里,
+    /// 但仍然在引擎里启用、可被用户手动输入触发。
+    private static let chipHiddenSkillIds: Set<String> = ["text"]
+
     private var skillChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(engine.enabledSkillInfos, id: \.name) { skill in
+                ForEach(engine.enabledSkillInfos.filter { !Self.chipHiddenSkillIds.contains($0.name) }, id: \.name) { skill in
+                    let label = Self.chipShortLabels[skill.name] ?? skill.displayName
                     Button {
                         inputText = skill.samplePrompt
                         Task { await send() }
                     } label: {
                         HStack(spacing: 5) {
                             Image(systemName: skill.icon).font(.system(size: 11))
-                            Text(skill.displayName).font(.system(size: 12, weight: .medium))
+                            Text(label).font(.system(size: 12, weight: .medium))
                         }
                         .foregroundStyle(Theme.textSecondary)
                         .padding(.horizontal, 12)
@@ -682,9 +698,17 @@ struct UserBubble: View {
                     Text(text)
                         .font(.system(size: 15))
                         .foregroundStyle(Theme.userText)
+                        .textSelection(.enabled)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
                         .background(Theme.userBubble, in: UserBubbleShape())
+                        .contextMenu {
+                            Button {
+                                UIPasteboard.general.string = text
+                            } label: {
+                                Label("复制", systemImage: "doc.on.doc")
+                            }
+                        }
                 }
             }
         }
@@ -1254,6 +1278,13 @@ struct AIResponseView: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.leading, 4)
                         .animation(nil, value: text)
+                        .contextMenu {
+                            Button {
+                                UIPasteboard.general.string = text
+                            } label: {
+                                Label("复制", systemImage: "doc.on.doc")
+                            }
+                        }
                 }
             }
             .animation(.easeInOut(duration: 0.3), value: block.skills.count)
@@ -1459,6 +1490,16 @@ struct SpinnerIcon: View {
 }
 
 // MARK: - 思考动画
+
+/// 演示 chip 按钮样式: press 时 spring 缩放 + 轻微透明度变化, 让卡片有"活气"。
+struct SkillCardButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .opacity(configuration.isPressed ? 0.85 : 1.0)
+            .animation(.spring(response: 0.32, dampingFraction: 0.72), value: configuration.isPressed)
+    }
+}
 
 struct ThinkingIndicator: View {
     @State private var active = 0

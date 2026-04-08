@@ -5,7 +5,7 @@ import Foundation
 // 文件驱动架构：
 //   - SKILL.md 定义 Skill 元数据 + 指令体（热更新）
 //   - ToolRegistry.swift 注册原生工具实现（编译时）
-//   - SkillLoader.swift 解析和加载 SKILL.md
+//   - SkillLoader.swift 解析 SKILL.md (无状态) + SkillRegistry 注册/查询 (有状态)
 //
 // 以下仅为给 UI 和 PromptBuilder 使用的精简数据结构。
 
@@ -22,6 +22,7 @@ struct SkillEntry: Identifiable {
     var name: String        // display name, e.g. "Clipboard"
     var description: String
     var icon: String
+    var type: SkillType
     var samplePrompt: String
     var tools: [ToolInfo] = []
     var isEnabled: Bool = true
@@ -33,6 +34,7 @@ struct SkillEntry: Identifiable {
         self.name = def.metadata.displayName
         self.description = def.metadata.description
         self.icon = def.metadata.icon
+        self.type = def.metadata.type
         self.samplePrompt = def.metadata.examples.first?.query ?? ""
         self.isEnabled = def.isEnabled
         self.filePath = def.filePath
@@ -50,5 +52,6 @@ struct SkillInfo {
     let description: String
     var displayName: String = ""
     var icon: String = "wrench"
+    var type: SkillType = .device
     var samplePrompt: String = ""
 }

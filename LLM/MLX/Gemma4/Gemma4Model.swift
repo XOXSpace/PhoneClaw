@@ -158,16 +158,18 @@ public class Gemma4Model: Module, VLMModel, KVCacheDimensionProvider {
     ) throws -> PrepareResult {
         let convertedCache = cache.compactMap { $0 as KVCache }
 
+        // 文本路径: chunked prefill 限制单次 forward 的瞬时激活内存。
+        // 详见 prepareTextChunked 注释。
         guard input.image?.pixels != nil || input.audio?.features != nil else {
-            let result = languageModel(
-                input.text.tokens,
+            return prepareTextChunked(
+                tokens: input.text.tokens,
                 cache: convertedCache,
-                inputsEmbeds: nil,
-                perLayerInputs: nil
+                windowSize: windowSize
             )
-            return .logits(result)
         }
 
+        // 多模态路径: 图像/音频 embedding 必须整体进入,
+        // 它们是固定大小的视觉/音频前缀, 无法天然 chunk。
         let inputEmbeddings = getInputEmbeddings(
             inputIds: input.text.tokens,
             pixelValues: input.image?.pixels,
@@ -181,6 +183,66 @@ public class Gemma4Model: Module, VLMModel, KVCacheDimensionProvider {
             cache: convertedCache,
             inputsEmbeds: inputEmbeddings.inputsEmbeds,
             perLayerInputs: inputEmbeddings.perLayerInputs
+        )
+        return .logits(result)
+    }
+
+    /// Chunked prefill: 把 prompt 切成 windowSize 大小的 chunk 逐次 forward,
+    /// 每个 chunk 之后 eval(cache) 强制 materialize KV 并释放 compute graph。
+    ///
+    /// **数学等价性**: 因果注意力 + KV cache 下, chunk 处理与单次 full prefill
+    /// 在最终 KV cache 状态和最后一个 token 的 logits 上完全一致。每个 chunk
+    /// 的 query 通过 cache 看到所有之前 token 的 K/V, 与一次性处理无差别。
+    ///
+    /// **内存收益**: 单 chunk transient = O(windowSize² × layers × hiddenDim)
+    /// 而不是 O(promptLen² × ...)。Gemma 4 E4B (42 层, 8 head, 2560 hidden)
+    /// 在 800 token 单 forward 下瞬时 ~1.7 GB, 加 4.6 GB 已驻留 weights+KV
+    /// 会撞 iPhone jetsam 6.1 GB 上限。256 chunk 下瞬时 ~400 MB, 安全。
+    ///
+    /// **框架层修复**: 不感知 prompt 内容、skill 数量、SKILL.md 格式或任何业务,
+    /// 只关心张量形状与内存预算。任何 prompt 长度都自动适用。
+    private func prepareTextChunked(
+        tokens: MLXArray,
+        cache: [KVCache],
+        windowSize: Int?
+    ) -> PrepareResult {
+        let prefillStepSize = max(windowSize ?? 512, 1)
+        let totalSeqLen = tokens.dim(1)
+
+        // 短 prompt: 单次 forward, 与重构前完全等价。
+        if totalSeqLen <= prefillStepSize {
+            let result = languageModel(
+                tokens,
+                cache: cache,
+                inputsEmbeds: nil,
+                perLayerInputs: nil
+            )
+            return .logits(result)
+        }
+
+        // 长 prompt: 切 chunk 处理。每 chunk 跑 forward → eval(cache) →
+        // discard transient compute graph → 下一 chunk。
+        var processed = 0
+        while processed + prefillStepSize < totalSeqLen {
+            let chunk = tokens[0..., processed ..< (processed + prefillStepSize)]
+            _ = languageModel(
+                chunk,
+                cache: cache,
+                inputsEmbeds: nil,
+                perLayerInputs: nil
+            )
+            eval(cache)
+            processed += prefillStepSize
+        }
+
+        // 最后一段 (<= prefillStepSize tokens): forward 并把 logits 返回给
+        // TokenIterator, 用于采样首个 generated token。
+        let lastChunk = tokens[0..., processed ..< totalSeqLen]
+        let result = languageModel(
+            lastChunk,
+            cache: cache,
+            inputsEmbeds: nil,
+            perLayerInputs: nil
         )
         return .logits(result)
     }
