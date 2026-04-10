@@ -27,6 +27,12 @@ A local AI Agent for iPhone. Offline. Private. Native.
 
 PhoneClaw is a local AI Agent that runs entirely on your iPhone. No internet connection. No data uploads. No cloud dependency.
 
+## 2026-04-10 Update
+
+- Added Health Skill: read HealthKit data including today's/yesterday's steps, weekly step trends, walking distance, active calories, resting heart rate, last night's sleep, weekly sleep summary, and recent workouts — 9 tools total, all data processed locally and never uploaded
+- Improved multi-turn response speed: cross-turn KV cache reuse reduces time-to-first-token by ~3.5x for consecutive queries within the same skill
+- The 9 health tools are automatically selected by the model based on user intent — no need to specify a query type
+
 ## 2026-04-09 Update
 
 - Ongoing framework and infrastructure work. Major improvement to the multi-turn agent framework: the Router now correctly preserves skill context across turns, and even small models can reliably complete multi-turn tool calls.
@@ -83,6 +89,12 @@ PhoneClaw is a local AI Agent that runs entirely on your iPhone. No internet con
 
 > "Translate that last line into Japanese"
 
+**Health Data**: Read HealthKit steps, distance, calories, heart rate, sleep, and workout records. All data stays on-device.
+
+> "How many steps did I take today?"
+> "How did I sleep last night?"
+> "How are my steps this week?"
+> "What's my resting heart rate?"
 
 ## Requirements
 
