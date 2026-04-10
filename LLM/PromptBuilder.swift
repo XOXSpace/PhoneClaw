@@ -205,6 +205,10 @@ struct PromptBuilder {
         // Router 已匹配的 skill: 直接 inline 它的 body + 工具白名单, 跳过 load_skill 往返。
         // 小模型做 "要不要 load_skill" 的 judgment call 非常不稳定; Router 既然已经
         // 基于 trigger 确定性地匹配到了, 就别再让模型犹豫一次。
+        //
+        // Note: skill body 必须留在 system turn 内。实验 (WS4) 证明移到 user turn
+        // 会导致模型不遵循 SKILL.md 的回复规则 (三档解读丢失、tool call 不触发)。
+        // 跨 skill KV cache 加速 (~175ms) 不值得牺牲指令遵循质量。
         if !preloadedSkills.isEmpty && !isMultimodalTurn {
             let allAllowed = Array(Set(preloadedSkills.flatMap(\.allowedTools))).sorted()
             prompt += "\n\n━━━━━━━━━━━━━━━━━━━━\n"

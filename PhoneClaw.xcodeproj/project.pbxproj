@@ -23,6 +23,7 @@
 		A31476FC2F85741500318978 /* ToolCallParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31476F32F85741500318978 /* ToolCallParser.swift */; };
 		AA1000000000000000000001 /* LLMEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000001 /* LLMEngine.swift */; };
 		AA1000000000000000000002 /* MLXLocalLLMService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000002 /* MLXLocalLLMService.swift */; };
+		AA1000000000000000000202 /* MLXLocalLLMService+KVReuse.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000202 /* MLXLocalLLMService+KVReuse.swift */; };
 		AA1000000000000000000003 /* Gemma4Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000003 /* Gemma4Config.swift */; };
 		AA1000000000000000000004 /* Gemma4LanguageModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000004 /* Gemma4LanguageModel.swift */; };
 		AA1000000000000000000005 /* Gemma4Model.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000005 /* Gemma4Model.swift */; };
@@ -50,6 +51,8 @@
 		AA1000000000000000000107 /* ModelInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000107 /* ModelInstaller.swift */; };
 		AA1000000000000000000108 /* GPULifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000108 /* GPULifecycle.swift */; };
 		B1A2C3D4E5F607182930B100 /* Library in Resources */ = {isa = PBXBuildFile; fileRef = B1A2C3D4E5F607182930B101 /* Library */; };
+		D5E6F7081A2B3C4D5E6F7090 /* gemma-4-e2b-it-4bit in Resources */ = {isa = PBXBuildFile; fileRef = D5E6F7081A2B3C4D5E6F7084 /* gemma-4-e2b-it-4bit */; };
+		D5E6F7081A2B3C4D5E6F7091 /* gemma-4-e4b-it-4bit in Resources */ = {isa = PBXBuildFile; fileRef = D5E6F7081A2B3C4D5E6F7086 /* gemma-4-e4b-it-4bit */; };
 		B881A2E7F9483D5ED2AC206B /* SkillsManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D269F8BFCAB68D82440F704B /* SkillsManagerView.swift */; };
 		B8A84E4D0DDDE011B5929DA2 /* AgentEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = E18A47114A10132E25E220F8 /* AgentEngine.swift */; };
 		BD75E7E5620A8FF0A868E9F0 /* libPods-PhoneClaw.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4F4ACB3F4531FF61E0AADA07 /* libPods-PhoneClaw.a */; };
@@ -90,6 +93,7 @@
 		A31476F42F85741500318978 /* ToolChain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolChain.swift; sourceTree = "<group>"; };
 		AA2000000000000000000001 /* LLMEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMEngine.swift; sourceTree = "<group>"; };
 		AA2000000000000000000002 /* MLXLocalLLMService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLXLocalLLMService.swift; sourceTree = "<group>"; };
+		AA2000000000000000000202 /* MLXLocalLLMService+KVReuse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MLXLocalLLMService+KVReuse.swift"; sourceTree = "<group>"; };
 		AA2000000000000000000003 /* Gemma4Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gemma4Config.swift; sourceTree = "<group>"; };
 		AA2000000000000000000004 /* Gemma4LanguageModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gemma4LanguageModel.swift; sourceTree = "<group>"; };
 		AA2000000000000000000005 /* Gemma4Model.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gemma4Model.swift; sourceTree = "<group>"; };
@@ -213,6 +217,7 @@
 				AA3000000000000000000011 /* Installation */,
 				AA3000000000000000000012 /* Gemma4 */,
 				AA2000000000000000000002 /* MLXLocalLLMService.swift */,
+				AA2000000000000000000202 /* MLXLocalLLMService+KVReuse.swift */,
 			);
 			path = MLX;
 			sourceTree = "<group>";
@@ -415,6 +420,8 @@
 			files = (
 				ICONASSETS0000000000002 /* Assets.xcassets in Resources */,
 				B1A2C3D4E5F607182930B100 /* Library in Resources */,
+				D5E6F7081A2B3C4D5E6F7090 /* gemma-4-e2b-it-4bit in Resources */,
+				D5E6F7081A2B3C4D5E6F7091 /* gemma-4-e4b-it-4bit in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -482,6 +489,7 @@
 				AA1000000000000000000009 /* MLXTokenizersLoader.swift in Sources */,
 				AA1000000000000000000001 /* LLMEngine.swift in Sources */,
 				AA1000000000000000000002 /* MLXLocalLLMService.swift in Sources */,
+				AA1000000000000000000202 /* MLXLocalLLMService+KVReuse.swift in Sources */,
 				45B7FEC6C4D055F44A87BFA9 /* PhoneClawApp.swift in Sources */,
 				5084E1CD2E831BC05F5E4374 /* PromptBuilder.swift in Sources */,
 				C1A2B3D4E5F607182930A1B2 /* SkillLoader.swift in Sources */,
@@ -635,7 +643,7 @@
 				CODE_SIGN_ENTITLEMENTS = PhoneClaw.entitlements;
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = ZP4QNJ35TH;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -656,7 +664,7 @@
 				CODE_SIGN_ENTITLEMENTS = PhoneClaw.entitlements;
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = ZP4QNJ35TH;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
