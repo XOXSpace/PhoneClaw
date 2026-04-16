@@ -364,37 +364,42 @@ void main() {
     const pmremGenerator = new THREE.PMREMGenerator(renderer);
     pmremGenerator.compileEquirectangularShader();
 
-    // Two-state material: dim gray while "preparing" (pre-TTS), warm amber-gold
-    // once engine has transitioned to any active state (.listening onwards).
-    // Lerped smoothly via __orbSetActive callback.
-    const activeColor      = new THREE.Color(0x2a1a08);  // 暖琥珀
+    // Two-state material: 加载/待机 dark matte, 可交互 warm amber-gold.
+    // 为了让切换对比明显 (metalness 0.85 下 color 被 envMap 压过, 色差不够),
+    // 我们同时调:
+    //   - color: 深灰 ↔ 暖琥珀
+    //   - envMapIntensity: 0 (不反射环境 HDR) ↔ 1.0 (全反射)
+    //   - emissiveIntensity: 0.15 (弱发光) ↔ 1.3 (强发光)
+    //   - roughness: 0.8 (磨砂, 没有镜面高光) ↔ 0.25 (半抛光)
+    // Inactive 时 Orb 看起来就是"熄灭的金属球", active 时"通电发光".
+    const activeColor      = new THREE.Color(0x2a1a08);
     const activeEmissive   = new THREE.Color(0x1a0f04);
-    const inactiveColor    = new THREE.Color(0x1a1a20);  // 冷灰
-    const inactiveEmissive = new THREE.Color(0x0a0a0c);
-    let activeTargetIntensity = 0.25;   // envMapIntensity target, start dim
-    let activeTargetEmissive  = 0.35;   // emissiveIntensity target, start dim
+    const inactiveColor    = new THREE.Color(0x141418);
+    const inactiveEmissive = new THREE.Color(0x040405);
+
+    let activeTargetIntensity = 0.0;   // envMapIntensity target (start dead)
+    let activeTargetEmissive  = 0.15;  // emissiveIntensity target
+    let activeTargetRoughness = 0.80;  // roughness target
 
     const sphereMaterial = new THREE.MeshStandardMaterial({
       color: inactiveColor.clone(),
       metalness: 0.85,
-      roughness: 0.25,
+      roughness: activeTargetRoughness,
       emissive: inactiveEmissive.clone(),
       emissiveIntensity: activeTargetEmissive,
       envMapIntensity: activeTargetIntensity
     });
 
-    window.__orbSetActive = (active) => {
-      activeTargetIntensity = active ? 1.0 : 0.25;
-      activeTargetEmissive  = active ? 1.2 : 0.35;
-      if (window.__orbTargetColor) {
-        window.__orbTargetColor.copy(active ? activeColor : inactiveColor);
-      }
-      if (window.__orbTargetEmissive) {
-        window.__orbTargetEmissive.copy(active ? activeEmissive : inactiveEmissive);
-      }
-    };
     window.__orbTargetColor = inactiveColor.clone();
     window.__orbTargetEmissive = inactiveEmissive.clone();
+
+    window.__orbSetActive = (active) => {
+      activeTargetIntensity = active ? 1.0 : 0.0;
+      activeTargetEmissive  = active ? 1.3 : 0.15;
+      activeTargetRoughness = active ? 0.25 : 0.80;
+      window.__orbTargetColor.copy(active ? activeColor : inactiveColor);
+      window.__orbTargetEmissive.copy(active ? activeEmissive : inactiveEmissive);
+    };
 
     sphereMaterial.onBeforeCompile = (shader) => {
       shader.uniforms.time = { value: 0 };
@@ -486,6 +491,8 @@ void main() {
         (activeTargetIntensity - sphereMaterial.envMapIntensity) * 0.06;
       sphereMaterial.emissiveIntensity +=
         (activeTargetEmissive - sphereMaterial.emissiveIntensity) * 0.06;
+      sphereMaterial.roughness +=
+        (activeTargetRoughness - sphereMaterial.roughness) * 0.06;
 
       if (sphereMaterial.userData.shader) {
         // 对齐原版：1 + (0.2 * data[1]) / 255

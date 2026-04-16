@@ -96,11 +96,11 @@ struct LiveModeView: View {
                 // ── 顶栏 ──
                 topBar
 
-                // ── 状态胶囊（顶栏下方） ──
-                statusCapsule
-                    .padding(.top, 12)
-
                 Spacer()
+
+                // ── 状态提示 (Orb 下方, 和文字信息聚在一起, 不干扰 Orb) ──
+                statusCapsule
+                    .padding(.bottom, 10)
 
                 // ── 对话文字区 ──
                 captionArea
