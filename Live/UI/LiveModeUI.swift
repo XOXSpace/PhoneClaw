@@ -186,26 +186,53 @@ struct LiveModeView: View {
 
     // MARK: - 对话文字区
 
+    /// 合并 realtime partial 和 final transcript 到"同一个 bubble"原地更新。
+    /// 之前的设计在 barge-in 时 realtimeCaption 非空 → 干掉了 final bubble, 待
+    /// realtimeCaption 清空又重新 mount final bubble, 哪怕文本和上一次 identical
+    /// 也会播一次 transition 动画 — 用户感知就是"弹两次"。
+    /// 现在只要有转写内容 (无论 live 还是 final) 都绑同一个 bubble 身份 (user-caption),
+    /// SwiftUI 只会 diff 文本, 不会 unmount/remount. 同文本时视觉零变化.
+    private var currentUserCaption: (label: String, text: String, isLive: Bool)? {
+        if let caption = realtimeCaption {
+            return (label: "识别中", text: caption, isLive: true)
+        }
+        let trimmed = liveEngine.lastTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            return (label: "你", text: trimmed, isLive: false)
+        }
+        return nil
+    }
+
     private var captionArea: some View {
-        VStack(spacing: 8) {
-            // 用户文字（ASR 实时 / 最终转录）
-            if let caption = realtimeCaption {
-                userCaptionBubble(label: "识别中", text: caption, isLive: true)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            } else if !liveEngine.lastTranscript.isEmpty {
-                userCaptionBubble(label: "你", text: liveEngine.lastTranscript, isLive: false)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+        VStack(spacing: 12) {
+            // 用户文字 — 无 bubble, 只是浅色透明文字流, 不抢视觉焦点
+            if let current = currentUserCaption {
+                Text(current.text)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.white.opacity(current.isLive ? 0.55 : 0.75))
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.horizontal, 20)
+                    .contentTransition(.interpolate)
+                    .id("user-caption")
+                    .transition(.opacity)
             }
 
-            // AI 回复
+            // AI 回复 — 同样去 bubble, 稍亮一点, 居中
             if realtimeCaption == nil, !liveEngine.lastReply.isEmpty {
-                replyCaptionBubble(text: liveEngine.lastReply)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                Text(liveEngine.lastReply)
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundStyle(.white.opacity(0.92))
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.horizontal, 20)
+                    .contentTransition(.interpolate)
+                    .id("ai-reply")
+                    .transition(.opacity)
             }
         }
-        .animation(.easeInOut(duration: 0.25), value: liveEngine.lastTranscript)
+        .animation(.easeInOut(duration: 0.2), value: currentUserCaption?.text)
         .animation(.easeInOut(duration: 0.25), value: liveEngine.lastReply)
-        .animation(.easeInOut(duration: 0.2), value: realtimeCaption)
     }
 
     // MARK: - 用户文字气泡
