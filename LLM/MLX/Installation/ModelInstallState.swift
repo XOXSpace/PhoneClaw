@@ -25,6 +25,7 @@ enum MLXError: LocalizedError {
     case modelDirectoryMissing(String)
     case gpuExecutionRequiresForeground
     case multimodalMemoryRisk(model: String, headroomMB: Int, recommendation: String)
+    case modelBusy
 
     var errorDescription: String? {
         switch self {
@@ -36,6 +37,8 @@ enum MLXError: LocalizedError {
             return "应用进入后台时，iPhone 不允许继续提交 GPU 推理任务。"
         case .multimodalMemoryRisk(let model, let headroomMB, let recommendation):
             return "\(model) 当前剩余内存仅约 \(headroomMB) MB，继续处理图片/音频很可能被系统直接杀掉。\(recommendation)"
+        case .modelBusy:
+            return "模型正忙，无法切换音频能力。请稍后重试。"
         }
     }
 }

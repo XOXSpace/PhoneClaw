@@ -1,10 +1,5 @@
 import Foundation
 
-// 与 PromptBuilder / ChatModels 中的常量保持一致。
-// 仅供 OutputCleaner 内部使用，外部使用方分别在自己的文件里维护副本。
-private let thinkingOpenMarker = "[[PHONECLAW_THINK]]"
-private let thinkingCloseMarker = "[[/PHONECLAW_THINK]]"
-
 extension AgentEngine {
 
     // MARK: - 中间输出/Prompt 回声识别
@@ -87,89 +82,13 @@ extension AgentEngine {
     // MARK: - 输出清洗
 
     func cleanOutputStreaming(_ text: String) -> String {
-        var result = preserveThinkingChannels(in: text)
-
-        if let tcRange = result.range(of: "<tool_call>") {
-            result = String(result[result.startIndex..<tcRange.lowerBound])
-        }
-
-        let endPatterns = ["<turn|>", "<end_of_turn>", "<eos>"]
-        for pat in endPatterns {
-            if let range = result.range(of: pat) {
-                result = String(result[result.startIndex..<range.lowerBound])
-                break
-            }
-        }
-
-        if let regex = try? NSRegularExpression(pattern: "<tool_call>.*?</tool_call>", options: .dotMatchesLineSeparators) {
-            result = regex.stringByReplacingMatches(in: result, range: NSRange(result.startIndex..., in: result), withTemplate: "")
-        }
-
-        result = result.replacingOccurrences(
-            of: "<\\|?[/a-z_]+\\|?>",
-            with: "",
-            options: .regularExpression
-        )
-
-        if result.hasPrefix("model\n") {
-            result = String(result.dropFirst(6))
-        } else if result == "model" {
-            return ""
-        } else if result.hasPrefix("user\n") {
-            result = String(result.dropFirst(5))
-        } else if result == "user" {
-            return ""
-        }
-
-        result = String(result.drop(while: { $0.isWhitespace || $0.isNewline }))
-        return normalizeSafetyTruncation(in: result)
+        let (safe, _) = OutputSanitizer.sanitize(text, mode: .chatUI)
+        return normalizeSafetyTruncation(in: safe)
     }
 
     func cleanOutput(_ text: String) -> String {
-        var result = preserveThinkingChannels(in: text)
-
-        if let regex = try? NSRegularExpression(pattern: "<tool_call>.*?</tool_call>", options: .dotMatchesLineSeparators) {
-            result = regex.stringByReplacingMatches(in: result, range: NSRange(result.startIndex..., in: result), withTemplate: "")
-        }
-
-        if let tcRange = result.range(of: "<tool_call>") {
-            result = String(result[result.startIndex..<tcRange.lowerBound])
-        }
-
-        let endPatterns = ["<turn|>", "<end_of_turn>", "<eos>"]
-        for pat in endPatterns {
-            if let range = result.range(of: pat) {
-                result = String(result[result.startIndex..<range.lowerBound])
-                break
-            }
-        }
-
-        result = result.replacingOccurrences(
-            of: "<\\|?[/a-z_]+\\|?>",
-            with: "",
-            options: .regularExpression
-        )
-
-        if let lastOpen = result.lastIndex(of: "<") {
-            let tail = String(result[lastOpen...])
-            let tailBody = tail.dropFirst()
-            if !tailBody.isEmpty && tailBody.allSatisfy({ $0.isLetter || $0 == "_" || $0 == "/" || $0 == "|" }) {
-                result = String(result[result.startIndex..<lastOpen])
-            }
-        }
-
-        if result.hasPrefix("model\n") {
-            result = String(result.dropFirst(6))
-        } else if result == "model" {
-            result = ""
-        } else if result.hasPrefix("user\n") {
-            result = String(result.dropFirst(5))
-        } else if result == "user" {
-            result = ""
-        }
-
-        result = result.trimmingCharacters(in: .whitespacesAndNewlines)
-        return normalizeSafetyTruncation(in: result)
+        let cleaned = OutputSanitizer.sanitizeFinal(text, mode: .chatUI)
+        return normalizeSafetyTruncation(in: cleaned)
     }
 
     // MARK: - 安全截断保留 / 句子边界
@@ -227,45 +146,4 @@ extension AgentEngine {
         return nil
     }
 
-    // MARK: - Thinking 通道保留
-
-    private func preserveThinkingChannels(in text: String) -> String {
-        let openTokens = ["<|channel|>thought\n", "<|channel>thought\n"]
-        let closeToken = "<channel|>"
-
-        var result = ""
-        var cursor = text.startIndex
-
-        while cursor < text.endIndex {
-            let nextOpen = openTokens
-                .compactMap { token -> (Range<String.Index>, String)? in
-                    guard let range = text.range(of: token, range: cursor..<text.endIndex) else {
-                        return nil
-                    }
-                    return (range, token)
-                }
-                .min(by: { $0.0.lowerBound < $1.0.lowerBound })
-
-            guard let (openRange, token) = nextOpen else {
-                result += text[cursor..<text.endIndex]
-                break
-            }
-
-            result += text[cursor..<openRange.lowerBound]
-            result += thinkingOpenMarker
-
-            let thoughtStart = openRange.lowerBound
-            let contentStart = text.index(thoughtStart, offsetBy: token.count)
-            if let closeRange = text.range(of: closeToken, range: contentStart..<text.endIndex) {
-                result += text[contentStart..<closeRange.lowerBound]
-                result += thinkingCloseMarker
-                cursor = closeRange.upperBound
-            } else {
-                result += text[contentStart..<text.endIndex]
-                break
-            }
-        }
-
-        return result
-    }
 }

@@ -10,6 +10,7 @@ struct ConfigurationsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @State private var selectedTab = 0  // 0=Model Settings, 1=System Prompt, 2=Permissions
+    @State private var showSkillsManager = false
 
     // 本地编辑状态（确认后才应用）
     @State private var selectedModelID = MLXLocalLLMService.defaultModel.id
@@ -52,6 +53,15 @@ struct ConfigurationsView: View {
 
                 // 底部按钮
                 HStack(spacing: 20) {
+                    Button {
+                        showSkillsManager = true
+                    } label: {
+                        Label(localized("Skills", "Skills"), systemImage: "puzzlepiece.extension")
+                            .font(.body.weight(.medium))
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                    .buttonStyle(.plain)
+
                     Spacer()
                     Button(localized("取消", "Cancel")) { dismiss() }
                         .foregroundStyle(Theme.textSecondary)
@@ -75,6 +85,9 @@ struct ConfigurationsView: View {
         }
         .preferredColorScheme(.dark)
         .onAppear { loadCurrentSettings() }
+        .sheet(isPresented: $showSkillsManager) {
+            SkillsManagerView(engine: engine)
+        }
         #if canImport(UIKit)
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             engine.llm.refreshModelInstallStates()
@@ -571,6 +584,8 @@ struct ConfigurationsView: View {
         switch kind {
         case .microphone:
             return localized("麦克风", "Microphone")
+        case .camera:
+            return localized("摄像头", "Camera")
         case .calendar:
             return localized("日历", "Calendar")
         case .reminders:
@@ -584,6 +599,8 @@ struct ConfigurationsView: View {
         switch kind {
         case .microphone:
             return localized("允许录音并采集实时音频输入", "Allow recording and capturing realtime audio input")
+        case .camera:
+            return localized("允许在 Live 模式中观察周围环境", "Allow camera access for Live mode visual grounding")
         case .calendar:
             return localized("允许创建和写入日历事项", "Allow creating and writing calendar events")
         case .reminders:

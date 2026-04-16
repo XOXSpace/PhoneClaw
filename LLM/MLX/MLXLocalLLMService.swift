@@ -38,6 +38,38 @@ public struct BundledModelOption: Identifiable, Hashable, Sendable {
 /// Forces MLX Metal GPU path — no CPU fallback.
 @Observable
 public class MLXLocalLLMService: LLMEngine {
+    private static var isSimulatorRuntime: Bool {
+        #if targetEnvironment(simulator)
+        true
+        #else
+        ProcessInfo.processInfo.environment["SIMULATOR_DEVICE_NAME"] != nil
+        #endif
+    }
+
+    private static let liveComponentTestLock = NSLock()
+    private static var liveComponentTestStarted = false
+
+    private static func mlxMemoryDiagnostics() -> String {
+        guard !isSimulatorRuntime else {
+            return "simulator-skip"
+        }
+        return "active: \(MLX.GPU.activeMemory / 1_048_576) MB, cache: \(MLX.GPU.cacheMemory / 1_048_576) MB"
+    }
+
+    private static func takeLiveComponentTestLaunchToken() -> Bool {
+        guard ProcessInfo.processInfo.environment["PHONECLAW_RUN_LIVE_COMPONENT_TEST"] == "1" else {
+            return false
+        }
+
+        return liveComponentTestLock.withLock {
+            if liveComponentTestStarted {
+                return false
+            }
+            liveComponentTestStarted = true
+            return true
+        }
+    }
+
     static let availableModels: [BundledModelOption] = [
         .init(
             id: "gemma-4-e2b-it-4bit",
@@ -112,6 +144,9 @@ public class MLXLocalLLMService: LLMEngine {
     var foregroundGPUAllowed = true
     var lifecycleObserverTokens: [NSObjectProtocol] = []
     var audioCapabilityEnabled = false
+    let capabilitySwitchLock = NSLock()
+    var capabilitySwitchPending = false
+    var admittedWorkCount = 0  // number of active load/generate tasks admitted past the gate
 
     // MARK: - KV Cache Reuse state
     //
@@ -156,6 +191,21 @@ public class MLXLocalLLMService: LLMEngine {
         currentLoadTask = Task { [weak self] in
             guard let self else { return }
             defer { self.currentLoadTask = nil }
+
+            // Admission gate: atomically check switch flag and register work
+            let admitted: Bool = self.capabilitySwitchLock.withLock {
+                if self.capabilitySwitchPending { return false }
+                self.admittedWorkCount += 1
+                return true
+            }
+            guard admitted else {
+                print("[MLX] loadModel: capability switch pending, aborting")
+                return
+            }
+            defer {
+                self.capabilitySwitchLock.withLock { self.admittedWorkCount -= 1 }
+            }
+
             do {
                 if self.isLoading {
                     return
@@ -296,7 +346,7 @@ public class MLXLocalLLMService: LLMEngine {
         let (footprintBefore, limitBefore) = MemoryStats.footprintMB()
         print("[MEM] Physical RAM: \(Int(physMB)) MB")
         print("[MEM] Before load — footprint: \(Int(footprintBefore)) MB, jetsam limit: \(Int(limitBefore)) MB")
-        print("[MEM] MLX before — active: \(MLX.GPU.activeMemory / 1_048_576) MB, cache: \(MLX.GPU.cacheMemory / 1_048_576) MB")
+        print("[MEM] MLX before — \(Self.mlxMemoryDiagnostics())")
 
         let container = try await VLMModelFactory.shared.loadContainer(
             from: path,
@@ -311,7 +361,7 @@ public class MLXLocalLLMService: LLMEngine {
         // ── Memory diagnostics (read after load) ───────────────────────────────
         let (footprintAfter, _) = MemoryStats.footprintMB()
         print("[MEM] After load  — footprint: \(Int(footprintAfter)) MB")
-        print("[MEM] MLX after   — active: \(MLX.GPU.activeMemory / 1_048_576) MB, cache: \(MLX.GPU.cacheMemory / 1_048_576) MB")
+        print("[MEM] MLX after   — \(Self.mlxMemoryDiagnostics())")
 
         let elapsed = (CFAbsoluteTimeGetCurrent() - loadStart) * 1000
         stats.loadTimeMs = elapsed
@@ -333,6 +383,53 @@ public class MLXLocalLLMService: LLMEngine {
         }
 
         try await load()
+    }
+
+    // MARK: - Live Mode Capability Preload
+    //
+    // Peterson's admission protocol: both sides (generation/load vs capability switch)
+    // publish their intent FIRST, then check the other side.
+
+    public func prepareForLiveMode() async throws {
+        if audioCapabilityEnabled && isLoaded { return }
+
+        let maxAttempts = 10
+
+        for attempt in 1...maxAttempts {
+            // Wait for in-flight work to finish
+            while isLoading || isGenerating {
+                print("[MLX] prepareForLiveMode: waiting... (attempt \(attempt))")
+                try await Task.sleep(nanoseconds: 100_000_000)
+            }
+            if audioCapabilityEnabled && isLoaded { return }
+
+            // Atomically: check no admitted work, then set switch flag
+            let acquired: Bool = capabilitySwitchLock.withLock {
+                if admittedWorkCount > 0 { return false }
+                capabilitySwitchPending = true
+                return true
+            }
+
+            guard acquired else {
+                // Admitted work is still running, retry
+                try await Task.sleep(nanoseconds: 100_000_000)
+                continue
+            }
+
+            // Flag set AND no admitted work. Perform the switch.
+            do {
+                try await ensureAudioCapability(hasAudio: true)
+                capabilitySwitchLock.withLock { capabilitySwitchPending = false }
+                return
+            } catch {
+                capabilitySwitchLock.withLock { capabilitySwitchPending = false }
+                throw error
+            }
+        }
+
+        capabilitySwitchLock.withLock { capabilitySwitchPending = false }
+        print("[MLX] prepareForLiveMode: could not reach stable idle")
+        throw MLXError.modelBusy
     }
 
     /// 当前可用内存 headroom（MB）。Agent 用来动态调整 history 深度。
@@ -364,6 +461,19 @@ public class MLXLocalLLMService: LLMEngine {
         // (first response is ~2-3s slower) but avoids the OOM kill on startup.
         print("[MLX] Warmup skipped — shaders will compile on first inference")
         statusMessage = "模型已就绪 ✅"
+
+        #if DEBUG
+        let isRunningXCTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+            || ProcessInfo.processInfo.environment["XCTestBundlePath"] != nil
+            || ProcessInfo.processInfo.environment["XCTestSessionIdentifier"] != nil
+
+        if !isRunningXCTest && Self.takeLiveComponentTestLaunchToken() {
+            // Debug-only opt-in E2E path for live voice validation.
+            // Never override the user's selected model, and only launch once
+            // per process so reloads/model switches don't start a second audio loop.
+            Task { await LiveComponentTest.runLiveLoop(llm: self) }
+        }
+        #endif
     }
 
     public func generateStream(
@@ -419,6 +529,23 @@ public class MLXLocalLLMService: LLMEngine {
                     continuation.finish(throwing: MLXError.modelNotLoaded)
                     return
                 }
+
+                // Admission gate: atomically check switch flag and register work
+                let admitted: Bool = self.capabilitySwitchLock.withLock {
+                    if self.capabilitySwitchPending { return false }
+                    self.admittedWorkCount += 1
+                    return true
+                }
+                guard admitted else {
+                    print("[MLX] generateStream: capability switch pending, aborting")
+                    continuation.finish(throwing: CancellationError())
+                    return
+                }
+                // Decrement counter when generation Task exits (any path)
+                defer {
+                    self.capabilitySwitchLock.withLock { self.admittedWorkCount -= 1 }
+                }
+
                 do {
                     try await self.ensureAudioCapability(hasAudio: !input.audios.isEmpty)
                 } catch {
@@ -512,7 +639,8 @@ public class MLXLocalLLMService: LLMEngine {
                 var hitTokenCap = false
 
                 let (fp, _) = MemoryStats.footprintMB()
-                print("[MEM] generateStream start — footprint: \(Int(fp)) MB, MLX active: \(MLX.GPU.activeMemory / 1_048_576) MB")
+                let mlxMemory = Self.isSimulatorRuntime ? "simulator-skip" : "\(MLX.GPU.activeMemory / 1_048_576) MB"
+                print("[MEM] generateStream start — footprint: \(Int(fp)) MB, MLX active: \(mlxMemory)")
 
                 do {
                     try await self.ensureForegroundGPUExecution()
@@ -643,6 +771,7 @@ public class MLXLocalLLMService: LLMEngine {
                     MLX.GPU.clearCache()
                     let (fpEnd, _) = MemoryStats.footprintMB()
                     print("[MEM] generateStream end  — footprint: \(Int(fpEnd)) MB, headroom: \(self.availableHeadroomMB) MB")
+                    print("[MEM] MLX post-clear — \(Self.mlxMemoryDiagnostics())")
 
                     // If we hit the token cap mid-sentence, append a visible notice.
                     // This makes truncation explicit rather than silently dropping content.
@@ -731,4 +860,3 @@ public class MLXLocalLLMService: LLMEngine {
         print("[MLX] Model unloaded")
     }
 }
-

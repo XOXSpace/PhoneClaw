@@ -1,4 +1,5 @@
 import Foundation
+import MLXLMCommon
 
 // MARK: - Prompt 构造器（Gemma 4 对话模板 + Function Calling）
 //
@@ -13,6 +14,42 @@ struct PromptBuilder {
     private static let thinkingOpenMarker = "[[PHONECLAW_THINK]]"
     private static let thinkingCloseMarker = "[[/PHONECLAW_THINK]]"
     private static let thinkingLanguageInstruction = "如果启用了思考模式，思考通道和最终回答都必须使用简体中文，不要使用英文。"
+
+    // MARK: - Gemma chat-message prompt formatter
+    //
+    // pipecat/MLXLLMServiceAdapter 专用: 把 Chat.Message 数组转成 Gemma 4 的
+    // <|turn>system/user/model 字符串, 走 MLXLocalLLMService.generateStream(prompt:) 路径.
+    //
+    // 为什么不直接 UserInput(chat:)?
+    //   MLXLMCommon 对 Gemma 4 走的是内置 MessageGenerator (或某版 chat template apply),
+    //   实测会让 system role 对小模型失效 — Gemma 4 E2B/E4B 完全不响应 system prompt 的
+    //   persona/marker 约束, 输出 training default "我是 Gemma 4". 改走手写字符串模板后
+    //   立刻恢复正常. 已经在 CLI live-pipeline-mlx harness 上验证.
+    //
+    // 历史债: AgentEngine (iOS Chat UI) 一直走手写模板 + generateStream(prompt:), 没踩坑.
+    //         新增的 pipecat 路径走了 Chat.Message 抽象才暴露出来.
+    static func buildGemmaChatPrompt(chat: [Chat.Message]) -> String {
+        var prompt = ""
+        let systemContent = chat
+            .filter { $0.role == .system }
+            .map(\.content)
+            .joined(separator: "\n\n")
+        if !systemContent.isEmpty {
+            prompt += "<|turn>system\n\(systemContent)\n<turn|>\n"
+        }
+        for message in chat where message.role != .system {
+            let role: String
+            switch message.role {
+            case .user: role = "user"
+            case .assistant: role = "model"
+            case .tool: role = "tool"
+            case .system: continue
+            }
+            prompt += "<|turn>\(role)\n\(message.content)<turn|>\n"
+        }
+        prompt += "<|turn>model\n"
+        return prompt
+    }
 
     static func multimodalSystemPrompt(hasImages: Bool, hasAudio: Bool, enableThinking: Bool = false) -> String {
         let base: String

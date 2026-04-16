@@ -55,5 +55,7 @@ public func loadWeights(
     let parameters = ModuleParameters.unflattened(weights)
     try model.update(parameters: parameters, verify: [.all])
 
-    eval(model)
+    // eval(model) — skipped: let weights stay lazy until first inference.
+    // On Apple Silicon UMA, lazy weights are materialized on-demand per layer.
+    print("[Load] lazyLoad: skipping eval(model), weights will eval on first use")
 }

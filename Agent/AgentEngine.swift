@@ -61,7 +61,6 @@ ___CONTENT_SKILLS___
 用中文回答，简洁实用。
 """
 
-
 // MARK: - Agent Engine
 
 @Observable
@@ -265,15 +264,16 @@ class AgentEngine {
     func processInput(
         _ text: String,
         images: [UIImage] = [],
-        audio: AudioCaptureSnapshot? = nil
+        audio: AudioCaptureSnapshot? = nil,
+        replayImageAttachments: [ChatImageAttachment]? = nil
     ) async {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let displayText = trimmed
-        let attachments = images.compactMap(ChatImageAttachment.init(image:))
+        let attachments = replayImageAttachments ?? images.compactMap(ChatImageAttachment.init(image:))
         let audioClips = audio.flatMap(ChatAudioAttachment.init(snapshot:)).map { [$0] } ?? []
         let audioAttachment = audio.map(UserInput.Audio.from(snapshot:))
         let normalizedText: String
-        if trimmed.isEmpty, !images.isEmpty {
+        if trimmed.isEmpty, !attachments.isEmpty {
             normalizedText = "请描述这张图片。"
         } else if trimmed.isEmpty, audio != nil {
             normalizedText = "请直接转写这段音频内容。"
@@ -694,4 +694,21 @@ class AgentEngine {
         return String(text[nameRange])
     }
 
+    // MARK: - 重试
+
+    /// 重试最后一轮用户输入。直接复用已持久化的附件数据，不重新编码。
+    func retryLastResponse() async {
+        guard !isProcessing, llm.isLoaded else { return }
+        guard let lastUserIndex = messages.lastIndex(where: { $0.role == .user }) else { return }
+        let userMsg = messages[lastUserIndex]
+        // 含音频的轮次不支持重试（AudioCaptureSnapshot 是一次性数据，无法从 WAV 反向构造）
+        guard userMsg.audios.isEmpty else { return }
+
+        let text = userMsg.content
+        let imageAttachments = userMsg.images
+        // 截断：移除该用户消息及之后所有消息
+        messages.removeSubrange(lastUserIndex...)
+        // 重新走 processInput，复用已持久化的 ChatImageAttachment，避免二次 JPEG 编码
+        await processInput(text, replayImageAttachments: imageAttachments)
+    }
 }

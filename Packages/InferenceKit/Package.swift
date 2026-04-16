@@ -36,7 +36,7 @@ let package = Package(
             targets: ["MLXLMCommon"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/ml-explore/mlx-swift", .upToNextMinor(from: "0.31.3")),
+        .package(path: "../mlx-swift"),
     ],
     targets: [
         .target(

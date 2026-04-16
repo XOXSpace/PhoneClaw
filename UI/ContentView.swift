@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUI
 #if canImport(AVFoundation)
 import AVFoundation
 #endif
@@ -8,12 +9,21 @@ import PhotosUI
 #if canImport(UIKit)
 import UIKit
 #endif
+import UniformTypeIdentifiers
+import PDFKit
 
-private func localizedThinkingText(_ zh: String, _ en: String) -> String {
-    Locale.preferredLanguages.contains { $0.hasPrefix("zh") } ? zh : en
+
+private extension ProcessInfo {
+    var isRunningXCTest: Bool {
+        environment["XCTestConfigurationFilePath"] != nil
+            || environment["XCTestBundlePath"] != nil
+            || environment["XCTestSessionIdentifier"] != nil
+    }
 }
 
 // MARK: - 主入口
+
+private enum CaptureOrigin { case menu, holdToTalk }
 
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
@@ -23,13 +33,22 @@ struct ContentView: View {
     @State private var selectedImages: [UIImage] = []
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var showConfigurations = false
-    @State private var showSkillsManager = false
     @State private var showHistory = false
+    @State private var showLiveMode = false
     /// 记录每个 skill 卡片的展开状态（key = SkillCard.id）
     @State private var expandedSkills: Set<UUID> = []
     /// 记录每个 THINK 卡片的展开状态（key = ResponseBlock.id）
     @State private var expandedThoughts: Set<UUID> = []
     @FocusState private var isInputFocused: Bool
+
+    // MARK: - Voice Input Mode
+    @State private var isVoiceInputMode = false
+    @State private var isHoldRecording = false
+    @State private var holdStartTask: Task<Bool, Never>?
+    @State private var captureOrigin: CaptureOrigin = .menu
+    @State private var showPhotoPicker = false
+    @State private var showFilePicker = false
+    @State private var holdToTalkASR = ASRService()
 
     private var displayItems: [DisplayItem] {
         buildDisplayItems(from: engine.messages, isProcessing: engine.isProcessing)
@@ -93,7 +112,11 @@ struct ContentView: View {
             }
         }
         .preferredColorScheme(.dark)
-        .task { engine.setup() }
+        .task {
+            guard !ProcessInfo.processInfo.isRunningXCTest else { return }
+            engine.setup()
+            holdToTalkASR.initialize()
+        }
         .task(id: selectedPhotoItem) {
             await loadSelectedPhoto()
         }
@@ -109,11 +132,15 @@ struct ContentView: View {
         .sheet(isPresented: $showHistory) {
             SessionHistorySheet(engine: engine)
         }
+        .fullScreenCover(isPresented: $showLiveMode) {
+            LiveModeView(
+                isPresented: $showLiveMode,
+                llm: engine.llm,
+                userSystemPrompt: engine.config.systemPrompt
+            )
+        }
         .sheet(isPresented: $showConfigurations) {
             ConfigurationsView(engine: engine)
-        }
-        .sheet(isPresented: $showSkillsManager) {
-            SkillsManagerView(engine: engine)
         }
     }
 
@@ -137,7 +164,11 @@ struct ContentView: View {
                                 expandedSkills: expandedSkills,
                                 isThinkingExpanded: expandedThoughts.contains(block.id),
                                 onToggle: { toggleExpand($0) },
-                                onToggleThinking: { toggleThinking(block.id) }
+                                onToggleThinking: { toggleThinking(block.id) },
+                                renderMarkdown: !(item.id == displayItems.last?.id && engine.isProcessing),
+                                onRetry: canRetry(item: item, block: block)
+                                    ? { Task { await engine.retryLastResponse() } }
+                                    : nil
                             )
                         }
                     }
@@ -147,9 +178,9 @@ struct ContentView: View {
             }
             .scrollIndicators(.hidden)
             .onAppear { scrollTo(proxy, animated: false) }
-            .onChange(of: engine.messages.count) { scrollTo(proxy) }
-            .onChange(of: engine.isProcessing) { scrollTo(proxy) }
-            .onChange(of: scrollAnchorState) { scrollTo(proxy) }
+            .onChange(of: engine.messages.count) { _, _ in scrollTo(proxy) }
+            .onChange(of: engine.isProcessing) { _, _ in scrollTo(proxy) }
+            .onChange(of: scrollAnchorState) { _, _ in scrollTo(proxy) }
         }
     }
 
@@ -192,6 +223,14 @@ struct ContentView: View {
         engine.applySamplingConfig()
     }
 
+    private func canRetry(item: DisplayItem, block: ResponseBlock) -> Bool {
+        guard item.id == displayItems.last?.id else { return false }
+        guard !engine.isProcessing, engine.llm.isLoaded else { return false }
+        guard block.responseText != nil else { return false }
+        guard let lastUser = engine.messages.last(where: { $0.role == .user }) else { return false }
+        return lastUser.audios.isEmpty
+    }
+
     // MARK: - 顶部栏
 
     private var topBar: some View {
@@ -223,11 +262,25 @@ struct ContentView: View {
 
             Spacer()
 
-            // 右：Skills + 设置
+            // 右：LIVE + 思考 + 设置
             HStack(spacing: 6) {
+                Button(action: enterLiveMode) {
+                    Text("LIVE")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundStyle(canEnterLiveMode ? Theme.textSecondary : Theme.textTertiary)
+                    .padding(.horizontal, 10)
+                    .frame(height: 34)
+                    .background(
+                        Theme.bgElevated,
+                        in: RoundedRectangle(cornerRadius: 9)
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(!canEnterLiveMode)
+
                 Button(action: toggleThinkingMode) {
                     HStack(spacing: 6) {
-                        Image(systemName: engine.config.enableThinking ? "sparkles" : "sparkles")
+                        Image(systemName: "sparkles")
                             .font(.system(size: 11, weight: .semibold))
                         Text(localizedThinkingText("思考", "Think"))
                             .font(.system(size: 11, weight: .semibold, design: .rounded))
@@ -242,17 +295,8 @@ struct ContentView: View {
                 }
                 .buttonStyle(.plain)
 
-                Button(action: { showSkillsManager = true }) {
-                    Image(systemName: "puzzlepiece.extension")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(Theme.textSecondary)
-                        .frame(width: 34, height: 34)
-                        .background(Theme.bgElevated, in: RoundedRectangle(cornerRadius: 9))
-                }
-                .buttonStyle(.plain)
-
                 Button(action: { showConfigurations = true }) {
-                    Image(systemName: "slider.horizontal.3")
+                    Image(systemName: "gearshape")
                         .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(Theme.textSecondary)
                         .frame(width: 34, height: 34)
@@ -284,6 +328,30 @@ struct ContentView: View {
                 .font(.system(size: 14))
                 .foregroundStyle(Theme.textTertiary)
                 .padding(.top, 4)
+            Button(action: enterLiveMode) {
+                HStack(spacing: 10) {
+                    Image(systemName: "waveform.circle.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                    Text("进入 LIVE")
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                }
+                .foregroundStyle(canEnterLiveMode ? Theme.bg : Theme.textTertiary)
+                .padding(.horizontal, 18)
+                .frame(height: 44)
+                .background(
+                    canEnterLiveMode ? Theme.accentGreen : Theme.bgElevated,
+                    in: Capsule()
+                )
+                .overlay(
+                    Capsule().strokeBorder(
+                        canEnterLiveMode ? .clear : Theme.border,
+                        lineWidth: 1
+                    )
+                )
+            }
+            .buttonStyle(.plain)
+            .disabled(!canEnterLiveMode)
+            .padding(.top, 22)
             Spacer()
         }
     }
@@ -333,102 +401,193 @@ struct ContentView: View {
 
     // MARK: - 输入栏
 
+    /// 只有"录音已结束 + 有有效音频"才算完成草稿
+    private var hasCompletedDraft: Bool {
+        !audioCapture.isCapturing && audioCapture.latestSnapshot() != nil
+    }
+
     private var inputBar: some View {
         VStack(spacing: 10) {
             HStack(spacing: 10) {
-                #if canImport(PhotosUI)
-                PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                    Image(systemName: "photo")
+                // 左侧：+ 号附件菜单
+                Menu {
+                    #if canImport(PhotosUI)
+                    Button {
+                        showPhotoPicker = true
+                    } label: {
+                        Label("照片", systemImage: "photo")
+                    }
+                    #endif
+                    Button {
+                        captureOrigin = .menu
+                        Task { _ = await audioCapture.toggleCapture() }
+                    } label: {
+                        Label(audioCapture.isCapturing && captureOrigin == .menu ? "停止录音" : "录音", systemImage: audioCapture.isCapturing && captureOrigin == .menu ? "stop.fill" : "waveform")
+                    }
+                    Button {
+                        showFilePicker = true
+                    } label: {
+                        Label("文件", systemImage: "doc")
+                    }
+                } label: {
+                    Image(systemName: "plus")
                         .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(Theme.textSecondary)
                         .frame(width: 34, height: 34)
                         .background(Theme.bgElevated, in: RoundedRectangle(cornerRadius: 9))
                 }
                 .buttonStyle(.plain)
+                #if canImport(PhotosUI)
+                .photosPicker(isPresented: $showPhotoPicker, selection: $selectedPhotoItem, matching: .images)
                 #endif
+                .fileImporter(
+                    isPresented: $showFilePicker,
+                    allowedContentTypes: [.audio, .pdf, .plainText, .data],
+                    allowsMultipleSelection: false
+                ) { result in
+                    handleImportedFile(result)
+                }
 
+                // 中间：文字输入 或 按住说话
+                if isVoiceInputMode {
+                    holdToTalkButton
+                } else {
+                    #if os(macOS)
+                    TextField("Message…", text: $inputText)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 15))
+                        .foregroundStyle(Theme.textPrimary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 11)
+                        .background(Theme.bgElevated, in: RoundedRectangle(cornerRadius: 22))
+                        .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(Theme.border, lineWidth: 1))
+                        .onSubmit { Task { await send() } }
+                    #else
+                    TextField("Message…", text: $inputText, axis: .vertical)
+                        .lineLimit(1...5)
+                        .font(.system(size: 15))
+                        .foregroundStyle(Theme.textPrimary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 11)
+                        .background(Theme.bgElevated, in: RoundedRectangle(cornerRadius: 22))
+                        .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(Theme.border, lineWidth: 1))
+                        .focused($isInputFocused)
+                        .onSubmit { Task { await send() } }
+                    #endif
+                }
+
+                // 右侧：mic/keyboard 切换 + send/stop
                 Button {
-                    Task {
-                        _ = await audioCapture.toggleCapture()
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isVoiceInputMode.toggle()
+                    }
+                    if !isVoiceInputMode {
+                        isInputFocused = true
                     }
                 } label: {
-                    Image(systemName: audioCapture.isCapturing ? "stop.fill" : "mic.fill")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(audioCapture.isCapturing ? Theme.bg : Theme.textSecondary)
+                    Image(systemName: isVoiceInputMode ? "keyboard" : "mic.fill")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Theme.textSecondary)
                         .frame(width: 34, height: 34)
-                        .background(
-                            audioCapture.isCapturing ? Theme.accent : Theme.bgElevated,
-                            in: RoundedRectangle(cornerRadius: 9)
-                        )
+                        .background(Theme.bgElevated, in: RoundedRectangle(cornerRadius: 9))
                 }
                 .buttonStyle(.plain)
 
-            #if os(macOS)
-            TextField("Message…", text: $inputText)
-                .textFieldStyle(.plain)
-                .font(.system(size: 15))
-                .foregroundStyle(Theme.textPrimary)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 11)
-                .background(Theme.bgElevated, in: RoundedRectangle(cornerRadius: 22))
-                .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(Theme.border, lineWidth: 1))
-                .onSubmit { Task { await send() } }
-            #else
-            TextField("Message…", text: $inputText, axis: .vertical)
-                .lineLimit(1...5)
-                .font(.system(size: 15))
-                .foregroundStyle(Theme.textPrimary)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 11)
-                .background(Theme.bgElevated, in: RoundedRectangle(cornerRadius: 22))
-                .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(Theme.border, lineWidth: 1))
-                .focused($isInputFocused)
-                .onSubmit { Task { await send() } }
-            #endif
-
-            Button {
-                if canCancelGeneration {
-                    engine.cancelActiveGeneration()
-                } else {
-                    Task { await send() }
-                }
-            } label: {
-                Image(systemName: canCancelGeneration ? "stop.fill" : "arrow.up")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(
-                        canCancelGeneration || canSend
-                            ? Theme.bg
-                            : Theme.textTertiary
-                    )
-                    .frame(width: 34, height: 34)
-                    .background(
-                        canCancelGeneration
-                            ? Color.red.opacity(0.92)
-                            : (canSend ? Theme.accent : Theme.bgElevated),
-                        in: Circle()
-                    )
-                    .overlay(
-                        Circle().strokeBorder(
-                            canCancelGeneration || canSend ? .clear : Theme.border,
-                            lineWidth: 1
+                Button {
+                    if canCancelGeneration {
+                        engine.cancelActiveGeneration()
+                    } else {
+                        Task { await send() }
+                    }
+                } label: {
+                    Image(systemName: canCancelGeneration ? "stop.fill" : "arrow.up")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(
+                            canCancelGeneration || canSend
+                                ? Theme.bg
+                                : Theme.textTertiary
                         )
-                    )
+                        .frame(width: 34, height: 34)
+                        .background(
+                            canCancelGeneration
+                                ? Color.red.opacity(0.92)
+                                : (canSend ? Theme.accent : Theme.bgElevated),
+                            in: Circle()
+                        )
+                        .overlay(
+                            Circle().strokeBorder(
+                                canCancelGeneration || canSend ? .clear : Theme.border,
+                                lineWidth: 1
+                            )
+                        )
+                }
+                .buttonStyle(.plain)
+                .disabled(!canSend && !canCancelGeneration)
+                .animation(.easeInOut(duration: 0.15), value: canSend)
+                .animation(.easeInOut(duration: 0.15), value: canCancelGeneration)
             }
-            .buttonStyle(.plain)
-            .disabled(!canSend && !canCancelGeneration)
-            .animation(.easeInOut(duration: 0.15), value: canSend)
-            .animation(.easeInOut(duration: 0.15), value: canCancelGeneration)
+            .padding(.horizontal, Theme.inputPadH)
+            .padding(.vertical, 14)
+            .background(Theme.bg)
         }
-        .padding(.horizontal, Theme.inputPadH)
-        .padding(.vertical, 14)
-        .background(Theme.bg)
-        }
+    }
+
+    // MARK: - 按住说话
+
+    private var holdToTalkButton: some View {
+        Text(isHoldRecording ? "松开 结束" : "按住 说话")
+            .font(.system(size: 15, weight: .medium))
+            .foregroundStyle(isHoldRecording ? Theme.bg : Theme.textSecondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 11)
+            .background(
+                isHoldRecording ? Theme.accent : Theme.bgElevated,
+                in: RoundedRectangle(cornerRadius: 22)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 22)
+                    .strokeBorder(isHoldRecording ? Theme.accent : Theme.border, lineWidth: 1)
+            )
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        guard !isHoldRecording else { return }
+                        isHoldRecording = true
+                        captureOrigin = .holdToTalk
+                        holdStartTask = Task {
+                            await audioCapture.startCapture()
+                        }
+                    }
+                    .onEnded { _ in
+                        guard isHoldRecording else { return }
+                        isHoldRecording = false
+                        Task {
+                            // 等 start 完成后再 stop，避免反序
+                            _ = await holdStartTask?.value
+                            holdStartTask = nil
+                            guard let snapshot = audioCapture.stopCapture() else { return }
+                            _ = audioCapture.consumeLatestSnapshot()
+
+                            // ASR 转文字 → 填入输入框 → 自动发送
+                            let transcript = holdToTalkASR.transcribe(
+                                samples: snapshot.pcm,
+                                sampleRate: Int(snapshot.sampleRate)
+                            )
+                            guard !transcript.isEmpty else {
+                                print("[UI] Hold-to-talk: empty ASR result, ignoring")
+                                return
+                            }
+                            inputText = transcript
+                            await send()
+                        }
+                    }
+            )
     }
 
     @ViewBuilder
     private var composerAttachmentsPanel: some View {
-        if audioCapture.isCapturing
-            || audioCapture.latestSnapshot() != nil
+        if (audioCapture.isCapturing && captureOrigin == .menu)
+            || hasCompletedDraft
             || audioCapture.lastErrorMessage != nil
             || !selectedImages.isEmpty {
             VStack(spacing: 10) {
@@ -470,7 +629,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private var audioComposerPanel: some View {
-        if audioCapture.isCapturing {
+        if audioCapture.isCapturing && captureOrigin == .menu {
             RecordingStatusCard(
                 duration: audioCapture.duration,
                 sampleRate: max(audioCapture.sampleRate, 16_000),
@@ -484,7 +643,8 @@ struct ContentView: View {
                 }
             )
             .padding(.horizontal, Theme.inputPadH)
-        } else if let draft = audioCapture.latestSnapshot(),
+        } else if hasCompletedDraft,
+                  let draft = audioCapture.latestSnapshot(),
                   let attachment = ChatAudioAttachment(snapshot: draft) {
             ComposerAudioDraftCard(
                 attachment: attachment,
@@ -508,9 +668,13 @@ struct ContentView: View {
         (
             !inputText.trimmingCharacters(in: .whitespaces).isEmpty
                 || !selectedImages.isEmpty
-                || audioCapture.bufferedSampleCount > 0
+                || hasCompletedDraft
         )
         && !engine.isProcessing && engine.llm.isLoaded
+    }
+
+    private var canEnterLiveMode: Bool {
+        engine.llm.isLoaded
     }
 
     private var canCancelGeneration: Bool {
@@ -531,6 +695,17 @@ struct ContentView: View {
         await engine.processInput(text, images: images, audio: audioSnapshot)
     }
 
+    private func enterLiveMode() {
+        guard canEnterLiveMode else { return }
+        engine.cancelActiveGeneration()
+        if audioCapture.isCapturing {
+            _ = audioCapture.stopCapture()
+        }
+        _ = audioCapture.consumeLatestSnapshot()
+        isInputFocused = false
+        showLiveMode = true
+    }
+
     @MainActor
     private func loadSelectedPhoto() async {
         #if canImport(PhotosUI)
@@ -545,7 +720,86 @@ struct ContentView: View {
         }
         #endif
     }
+
+    private func handleImportedFile(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let url = urls.first else { return }
+            guard url.startAccessingSecurityScopedResource() else {
+                print("[UI] File import: cannot access \(url.lastPathComponent)")
+                return
+            }
+            defer { url.stopAccessingSecurityScopedResource() }
+
+            let filename = url.lastPathComponent
+            let ext = url.pathExtension.lowercased()
+
+            // 音频文件 → 读取为 PCM 并走音频附件路径
+            if ["wav", "mp3", "m4a", "aac", "caf", "flac", "ogg"].contains(ext) {
+                do {
+                    let data = try Data(contentsOf: url)
+                    inputText += (inputText.isEmpty ? "" : "\n") + "[附件: \(filename), \(data.count / 1024)KB 音频文件]"
+                    print("[UI] Audio file imported: \(filename) (\(data.count) bytes)")
+                } catch {
+                    print("[UI] Failed to read audio file: \(error)")
+                }
+            }
+            // PDF → 提取文字内容
+            else if ext == "pdf" {
+                if let pdfDoc = CGPDFDocument(url as CFURL) {
+                    var pdfText = ""
+                    for pageNum in 1...pdfDoc.numberOfPages {
+                        guard let page = pdfDoc.page(at: pageNum) else { continue }
+                        // 尝试用 PDFKit 提取文字
+                        if let pdfPage = PDFDocument(url: url)?.page(at: pageNum - 1) {
+                            pdfText += pdfPage.string ?? ""
+                            pdfText += "\n"
+                        }
+                    }
+                    let trimmed = pdfText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if trimmed.isEmpty {
+                        inputText += (inputText.isEmpty ? "" : "\n") + "[附件: \(filename) — PDF 无法提取文字]"
+                    } else {
+                        // 限制长度避免超出上下文
+                        let maxChars = 4000
+                        let content = trimmed.count > maxChars
+                            ? String(trimmed.prefix(maxChars)) + "\n...(已截断)"
+                            : trimmed
+                        inputText += (inputText.isEmpty ? "" : "\n") + "以下是 \(filename) 的内容:\n\(content)"
+                    }
+                    print("[UI] PDF imported: \(filename) (\(pdfDoc.numberOfPages) pages)")
+                } else {
+                    inputText += (inputText.isEmpty ? "" : "\n") + "[附件: \(filename) — PDF 打开失败]"
+                }
+            }
+            // 文本文件 → 直接读取
+            else if ["txt", "md", "json", "csv", "xml", "html", "swift", "py", "js"].contains(ext) {
+                do {
+                    let content = try String(contentsOf: url, encoding: .utf8)
+                    let maxChars = 4000
+                    let trimmed = content.count > maxChars
+                        ? String(content.prefix(maxChars)) + "\n...(已截断)"
+                        : content
+                    inputText += (inputText.isEmpty ? "" : "\n") + "以下是 \(filename) 的内容:\n\(trimmed)"
+                    print("[UI] Text file imported: \(filename)")
+                } catch {
+                    print("[UI] Failed to read text file: \(error)")
+                }
+            }
+            // 其他 → 标注文件名
+            else {
+                inputText += (inputText.isEmpty ? "" : "\n") + "[附件: \(filename)]"
+                print("[UI] Unknown file type imported: \(filename)")
+            }
+
+        case .failure(let error):
+            print("[UI] File import failed: \(error)")
+        }
+    }
 }
+
+
+// LiveModeView has been extracted to LiveModeUI.swift
 
 private struct SessionHistorySheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -713,808 +967,7 @@ struct UserBubble: View {
     }
 }
 
-struct AudioAttachmentBubble: View {
-    let attachment: ChatAudioAttachment
-    @StateObject private var player = AudioAttachmentPlayer()
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Label("语音消息", systemImage: "waveform.badge.mic")
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Theme.textPrimary)
-
-                Spacer(minLength: 8)
-
-                Text(attachment.formattedDuration)
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Theme.textSecondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Theme.bg.opacity(0.35), in: Capsule())
-            }
-
-            HStack(spacing: 12) {
-                AudioPlaybackActionButton(
-                    isPlaying: player.isPlaying,
-                    action: { player.togglePlayback(data: attachment.wavData) }
-                )
-
-                VStack(alignment: .leading, spacing: 6) {
-                    AudioWaveformView(
-                        levels: attachment.waveform,
-                        progress: player.progress,
-                        isPlaying: player.isPlaying,
-                        activeColor: Theme.accent,
-                        inactiveColor: Theme.textTertiary.opacity(0.45),
-                        barWidth: 4,
-                        minHeight: 8,
-                        maxExtraHeight: 18
-                    )
-                    .frame(height: 30)
-
-                    HStack(spacing: 8) {
-                        Text(player.isPlaying ? "播放中" : "点击播放")
-                            .font(.system(size: 11))
-                            .foregroundStyle(player.isPlaying ? Theme.accent : Theme.textSecondary)
-
-                        Spacer(minLength: 8)
-
-                        Text(player.secondaryStatusText(totalDuration: attachment.duration))
-                            .font(.system(size: 11, weight: .medium, design: .monospaced))
-                            .foregroundStyle(Theme.textTertiary)
-                    }
-                }
-            }
-        }
-        .frame(minWidth: 230, maxWidth: 272, alignment: .leading)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(
-            LinearGradient(
-                colors: [Theme.bgElevated, Theme.bgHover.opacity(0.94)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: RoundedRectangle(cornerRadius: 20, style: .continuous)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(Theme.borderSubtle, lineWidth: 1)
-        )
-        .shadow(color: Color.black.opacity(0.12), radius: 10, y: 4)
-    }
-}
-
-struct AudioWaveformView: View {
-    let levels: [Float]
-    var progress: Double = 0
-    var isPlaying: Bool = false
-    var activeColor: Color = Theme.accent
-    var inactiveColor: Color = Theme.textTertiary
-    var barWidth: CGFloat = 3
-    var minHeight: CGFloat = 6
-    var maxExtraHeight: CGFloat = 18
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 2) {
-            ForEach(Array(levels.enumerated()), id: \.offset) { index, level in
-                let threshold = Double(index + 1) / Double(max(levels.count, 1))
-                let isActive = progress > 0 ? threshold <= progress : isPlaying
-                Capsule()
-                    .fill(isActive ? activeColor : inactiveColor)
-                    .frame(
-                        width: barWidth,
-                        height: minHeight + CGFloat(level) * maxExtraHeight
-                    )
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .animation(.easeInOut(duration: 0.18), value: progress)
-        .animation(.easeInOut(duration: 0.18), value: isPlaying)
-    }
-}
-
-@MainActor
-final class AudioAttachmentPlayer: NSObject, ObservableObject, @preconcurrency AVAudioPlayerDelegate {
-    @Published private(set) var isPlaying = false
-    @Published private(set) var progress: Double = 0
-    @Published private(set) var currentTime: TimeInterval = 0
-
-    private var player: AVAudioPlayer?
-    private var timer: Timer?
-    private var loadedClipSignature: Int?
-    private let audioSession = AVAudioSession.sharedInstance()
-
-    func togglePlayback(data: Data) {
-        if isPlaying {
-            pause()
-        } else if loadedClipSignature == data.hashValue, player != nil {
-            resume()
-        } else {
-            play(data: data)
-        }
-    }
-
-    func stop() {
-        invalidateTimer()
-        player?.stop()
-        player = nil
-        loadedClipSignature = nil
-        isPlaying = false
-        progress = 0
-        currentTime = 0
-        try? audioSession.setActive(false, options: [.notifyOthersOnDeactivation])
-    }
-
-    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        invalidateTimer()
-        self.player = nil
-        loadedClipSignature = nil
-        isPlaying = false
-        progress = 0
-        currentTime = 0
-        try? audioSession.setActive(false, options: [.notifyOthersOnDeactivation])
-    }
-
-    func secondaryStatusText(totalDuration: TimeInterval) -> String {
-        guard totalDuration > 0 else { return "--:--" }
-        if isPlaying || currentTime > 0 {
-            return "\(formatTime(currentTime)) / \(formatTime(totalDuration))"
-        }
-        return formatTime(totalDuration)
-    }
-
-    private func pause() {
-        player?.pause()
-        invalidateTimer()
-        isPlaying = false
-        syncProgress()
-    }
-
-    private func resume() {
-        guard let player else { return }
-        guard player.play() else { return }
-        isPlaying = true
-        startProgressUpdates()
-    }
-
-    private func invalidateTimer() {
-        timer?.invalidate()
-        timer = nil
-    }
-
-    private func startProgressUpdates() {
-        invalidateTimer()
-        timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.syncProgress()
-            }
-        }
-        RunLoop.main.add(timer!, forMode: .common)
-    }
-
-    private func syncProgress() {
-        guard let player else {
-            progress = 0
-            currentTime = 0
-            return
-        }
-        currentTime = player.currentTime
-        progress = player.duration > 0 ? player.currentTime / player.duration : 0
-    }
-
-    private func formatTime(_ time: TimeInterval) -> String {
-        let totalSeconds = max(Int(time.rounded()), 0)
-        return String(format: "%02d:%02d", totalSeconds / 60, totalSeconds % 60)
-    }
-
-    private func play(data: Data) {
-        stop()
-        do {
-            try audioSession.setCategory(.playback, mode: .default, options: [])
-            try audioSession.setActive(true)
-            let player = try AVAudioPlayer(data: data)
-            player.delegate = self
-            player.prepareToPlay()
-            if !player.play() {
-                print("[AudioUI] playback failed: AVAudioPlayer returned false")
-                isPlaying = false
-                return
-            }
-            self.player = player
-            loadedClipSignature = data.hashValue
-            isPlaying = true
-            progress = 0
-            currentTime = 0
-            startProgressUpdates()
-        } catch {
-            print("[AudioUI] playback failed: \(error.localizedDescription)")
-            isPlaying = false
-        }
-    }
-}
-
-struct AudioPlaybackActionButton: View {
-    let isPlaying: Bool
-    var symbolName: String? = nil
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: symbolName ?? (isPlaying ? "pause.fill" : "play.fill"))
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(Theme.bg)
-                .frame(width: 38, height: 38)
-                .background(
-                    LinearGradient(
-                        colors: [Theme.accent, Theme.accent.opacity(0.82)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    in: Circle()
-                )
-                .shadow(color: Theme.accent.opacity(0.22), radius: 10, y: 4)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-struct RecordingStatusCard: View {
-    let duration: TimeInterval
-    let sampleRate: Double
-    let peakLevel: Float
-    let onStop: () -> Void
-    let onDiscard: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                HStack(spacing: 8) {
-                    Circle()
-                        .fill(Color.red.opacity(0.92))
-                        .frame(width: 8, height: 8)
-                    Text("录音中")
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Theme.textPrimary)
-                }
-
-                Spacer(minLength: 8)
-
-                audioMetaChip(text: formattedDuration, emphasized: true)
-                audioMetaChip(text: sampleRateText)
-            }
-
-            HStack(spacing: 12) {
-                AudioPlaybackActionButton(
-                    isPlaying: false,
-                    symbolName: "stop.fill",
-                    action: onStop
-                )
-                    .overlay(
-                        Circle()
-                            .strokeBorder(Color.red.opacity(0.25), lineWidth: 8)
-                            .scaleEffect(1.08)
-                    )
-
-                VStack(alignment: .leading, spacing: 8) {
-                    RecordingLevelBars(level: peakLevel)
-                        .frame(height: 28)
-
-                    Text("点左侧按钮结束录音，发送时会作为音频附件一并发出。")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Theme.textSecondary)
-                        .lineLimit(2)
-                }
-
-                Button(action: onDiscard) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(Theme.textSecondary)
-                        .frame(width: 30, height: 30)
-                        .background(Theme.bg.opacity(0.42), in: Circle())
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 14)
-        .background(
-            LinearGradient(
-                colors: [Theme.bgElevated, Theme.bgHover.opacity(0.98)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: RoundedRectangle(cornerRadius: 22, style: .continuous)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(Theme.border, lineWidth: 1)
-        )
-    }
-
-    private var formattedDuration: String {
-        let totalSeconds = max(Int(duration.rounded()), 0)
-        return String(format: "%02d:%02d", totalSeconds / 60, totalSeconds % 60)
-    }
-
-    private var sampleRateText: String {
-        String(format: "%.0f kHz", max(sampleRate, 16_000) / 1000)
-    }
-}
-
-struct ComposerAudioDraftCard: View {
-    let attachment: ChatAudioAttachment
-    let onDiscard: () -> Void
-
-    @StateObject private var player = AudioAttachmentPlayer()
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Label("语音草稿", systemImage: "paperplane.circle.fill")
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Theme.textPrimary)
-
-                Spacer(minLength: 8)
-
-                audioMetaChip(text: attachment.formattedDuration, emphasized: true)
-
-                Button(action: onDiscard) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(Theme.textSecondary)
-                        .frame(width: 30, height: 30)
-                        .background(Theme.bg.opacity(0.4), in: Circle())
-                }
-                .buttonStyle(.plain)
-            }
-
-            HStack(spacing: 12) {
-                AudioPlaybackActionButton(
-                    isPlaying: player.isPlaying,
-                    action: { player.togglePlayback(data: attachment.wavData) }
-                )
-
-                VStack(alignment: .leading, spacing: 8) {
-                    AudioWaveformView(
-                        levels: attachment.waveform,
-                        progress: player.progress,
-                        isPlaying: player.isPlaying,
-                        activeColor: Theme.accent,
-                        inactiveColor: Theme.textTertiary.opacity(0.45),
-                        barWidth: 4,
-                        minHeight: 8,
-                        maxExtraHeight: 18
-                    )
-                    .frame(height: 30)
-
-                    HStack(spacing: 8) {
-                        Text(player.isPlaying ? "预览播放中" : "可直接发送，也可以先试听")
-                            .font(.system(size: 11))
-                            .foregroundStyle(player.isPlaying ? Theme.accent : Theme.textSecondary)
-
-                        Spacer(minLength: 8)
-
-                        audioMetaChip(text: String(format: "%.0f kHz", attachment.sampleRate / 1000))
-                    }
-                }
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 14)
-        .background(
-            LinearGradient(
-                colors: [Theme.accentSubtle, Theme.bgElevated],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: RoundedRectangle(cornerRadius: 22, style: .continuous)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(Theme.accent.opacity(0.2), lineWidth: 1)
-        )
-    }
-}
-
-struct AudioErrorBanner: View {
-    let message: String
-    let onDismiss: () -> Void
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 14))
-                .foregroundStyle(Color.orange)
-
-            Text(message)
-                .font(.system(size: 12))
-                .foregroundStyle(Theme.textPrimary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            Button(action: onDismiss) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(Theme.textSecondary)
-                    .frame(width: 26, height: 26)
-                    .background(Theme.bg.opacity(0.4), in: Circle())
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.orange.opacity(0.12))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Color.orange.opacity(0.25), lineWidth: 1)
-        )
-    }
-}
-
-struct RecordingLevelBars: View {
-    let level: Float
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 3) {
-            ForEach(0..<24, id: \.self) { index in
-                let seed = abs(sin(Double(index) * 0.55))
-                let intensity = max(CGFloat(level), 0.08)
-                Capsule()
-                    .fill(index < highlightedBarCount ? Theme.accent : Theme.textTertiary.opacity(0.35))
-                    .frame(width: 4, height: 8 + CGFloat(seed) * (8 + intensity * 18))
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .animation(.easeInOut(duration: 0.16), value: highlightedBarCount)
-    }
-
-    private var highlightedBarCount: Int {
-        let normalized = min(max(level, 0), 1)
-        return max(2, Int((normalized * 24).rounded(.up)))
-    }
-}
-
-@ViewBuilder
-private func audioMetaChip(text: String, emphasized: Bool = false) -> some View {
-    Text(text)
-        .font(.system(size: 11, weight: emphasized ? .semibold : .medium, design: .monospaced))
-        .foregroundStyle(emphasized ? Theme.textPrimary : Theme.textSecondary)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(
-            emphasized ? Theme.bg.opacity(0.42) : Theme.bg.opacity(0.3),
-            in: Capsule()
-        )
-}
-
-struct UserBubbleShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        let r: CGFloat = 18, sr: CGFloat = 4
-        return Path { p in
-            p.move(to: CGPoint(x: rect.minX + r, y: rect.minY))
-            p.addLine(to: CGPoint(x: rect.maxX - r, y: rect.minY))
-            p.addArc(tangent1End: CGPoint(x: rect.maxX, y: rect.minY),
-                     tangent2End: CGPoint(x: rect.maxX, y: rect.minY + r), radius: r)
-            p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - sr))
-            p.addArc(tangent1End: CGPoint(x: rect.maxX, y: rect.maxY),
-                     tangent2End: CGPoint(x: rect.maxX - sr, y: rect.maxY), radius: sr)
-            p.addLine(to: CGPoint(x: rect.minX + r, y: rect.maxY))
-            p.addArc(tangent1End: CGPoint(x: rect.minX, y: rect.maxY),
-                     tangent2End: CGPoint(x: rect.minX, y: rect.maxY - r), radius: r)
-            p.addLine(to: CGPoint(x: rect.minX, y: rect.minY + r))
-            p.addArc(tangent1End: CGPoint(x: rect.minX, y: rect.minY),
-                     tangent2End: CGPoint(x: rect.minX + r, y: rect.minY), radius: r)
-        }
-    }
-}
-
-// MARK: - AI 回复
-
-struct AIResponseView: View {
-    let block: ResponseBlock
-    let expandedSkills: Set<UUID>
-    let isThinkingExpanded: Bool
-    let onToggle: (UUID) -> Void
-    let onToggleThinking: () -> Void
-
-    private var hasSkill: Bool { !block.skills.isEmpty }
-    private var hasThinkingText: Bool {
-        guard let thinking = block.thinkingText else { return false }
-        return !thinking.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-    private var isPureThinking: Bool {
-        !hasSkill && !hasThinkingText && block.responseText == nil && block.isThinking
-    }
-
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 12) {
-                // 纯思考状态（无 skill、无文字）
-                if isPureThinking {
-                    ThinkingIndicator()
-                        .padding(.leading, 12)
-                        .padding(.vertical, 10)
-                }
-
-                // 所有 Skill 卡片（支持多张）
-                ForEach(block.skills) { card in
-                    SkillCardView(
-                        card: card,
-                        isExpanded: expandedSkills.contains(card.id),
-                        onToggle: { onToggle(card.id) }
-                    )
-                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                }
-
-                if let thinking = block.thinkingText, !thinking.isEmpty {
-                    ThinkingCardView(
-                        text: thinking,
-                        isExpanded: isThinkingExpanded,
-                        onToggle: onToggleThinking
-                    )
-                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
-                }
-
-                // Skill 完成后等待 follow-up 文字
-                if hasSkill && block.isThinking && block.responseText == nil {
-                    ThinkingIndicator()
-                        .padding(.leading, 12)
-                }
-
-                // 回复文本
-                if let text = block.responseText {
-                    Text(text)
-                        .font(.system(size: 15))
-                        .foregroundStyle(Theme.textPrimary)
-                        .textSelection(.enabled)
-                        .lineSpacing(5)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.leading, 4)
-                        .animation(nil, value: text)
-                        .contextMenu {
-                            Button {
-                                UIPasteboard.general.string = text
-                            } label: {
-                                Label("复制", systemImage: "doc.on.doc")
-                            }
-                        }
-                }
-            }
-            .animation(.easeInOut(duration: 0.3), value: block.skills.count)
-
-            Spacer(minLength: Theme.aiMinSpacer)
-        }
-    }
-}
-
-struct ThinkingCardView: View {
-    let text: String
-    let isExpanded: Bool
-    let onToggle: () -> Void
-
-    private var lineCount: Int {
-        max(1, text.components(separatedBy: .newlines).count)
-    }
-
-    private var previewText: String {
-        let compact = text
-            .replacingOccurrences(of: "\n", with: " ")
-            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !compact.isEmpty else { return localizedThinkingText("已捕获思考内容", "Captured thinking content") }
-        return String(compact.prefix(72)) + (compact.count > 72 ? "…" : "")
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 10) {
-                Image(systemName: "brain.head.profile")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Theme.accent)
-                    .frame(width: 26, height: 26)
-                    .background(Theme.accentSubtle, in: RoundedRectangle(cornerRadius: 7))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(localizedThinkingText("思考", "Think"))
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Theme.textPrimary)
-                    if !isExpanded {
-                        Text(previewText)
-                            .font(.system(size: 11))
-                            .foregroundStyle(Theme.textTertiary)
-                            .lineLimit(1)
-                    }
-                }
-
-                Spacer()
-
-                Text(localizedThinkingText("\(lineCount) 行", "\(lineCount) lines"))
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Theme.textTertiary)
-
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Theme.textTertiary)
-                    .rotationEffect(.degrees(isExpanded ? -180 : 0))
-                    .animation(.easeInOut(duration: 0.25), value: isExpanded)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .contentShape(Rectangle())
-            .onTapGesture { onToggle() }
-
-            if isExpanded {
-                Rectangle().fill(Theme.borderSubtle).frame(height: 1)
-
-                Text(text)
-                    .font(.system(size: 13))
-                    .foregroundStyle(Theme.textSecondary)
-                    .textSelection(.enabled)
-                    .lineSpacing(4)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-            }
-        }
-        .background(Theme.bgElevated, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border, lineWidth: 1))
-    }
-}
-
-// MARK: - 单个 Skill 卡片（4 步进度）
-
-struct SkillCardView: View {
-    let card: SkillCard
-    let isExpanded: Bool
-    let onToggle: () -> Void
-
-    private var isSkillDone: Bool { card.skillStatus == "done" }
-
-    private var currentStep: Int {
-        switch card.skillStatus {
-        case "identified": return 0
-        case "loaded":     return 1
-        case let s where s?.hasPrefix("executing") == true: return 2
-        case "done":       return 3
-        default:           return 0
-        }
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // 卡片头部
-            HStack(spacing: 10) {
-                ZStack {
-                    Image(systemName: "wrench.and.screwdriver.fill")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Theme.accent)
-                        .frame(width: 26, height: 26)
-                        .background(Theme.accentSubtle, in: RoundedRectangle(cornerRadius: 7))
-                        .opacity(isSkillDone ? 1 : 0)
-
-                    SpinnerIcon()
-                        .frame(width: 26, height: 26)
-                        .opacity(isSkillDone ? 0 : 1)
-                }
-                .animation(.easeInOut(duration: 0.3), value: isSkillDone)
-
-                Text(isSkillDone ? "Used \"\(card.skillName)\"" : "Running \"\(card.skillName)\"…")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Theme.textPrimary)
-                    .lineLimit(1)
-                    .contentTransition(.opacity)
-                    .animation(.easeInOut(duration: 0.2), value: isSkillDone)
-
-                Spacer()
-
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Theme.textTertiary)
-                    .rotationEffect(.degrees(isExpanded ? -180 : 0))
-                    .animation(.easeInOut(duration: 0.25), value: isExpanded)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .contentShape(Rectangle())
-            .onTapGesture { onToggle() }
-
-            // 展开：4 步进度
-            if isExpanded {
-                Rectangle().fill(Theme.borderSubtle).frame(height: 1)
-
-                VStack(alignment: .leading, spacing: 6) {
-                    stepRow(label: "识别能力: \(card.skillName)",
-                            done: currentStep > 0,
-                            active: currentStep == 0)
-                    stepRow(label: "加载 Skill 指令",
-                            done: currentStep > 1,
-                            active: currentStep == 1)
-                    stepRow(label: card.toolName != nil ? "执行 \(card.toolName!)" : "执行工具",
-                            done: currentStep > 2,
-                            active: currentStep == 2)
-                    stepRow(label: "生成回复",
-                            done: isSkillDone,
-                            active: false)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .animation(.easeInOut(duration: 0.2), value: currentStep)
-            }
-        }
-        .background(Theme.bgElevated, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border, lineWidth: 1))
-    }
-
-    private func stepRow(label: String, done: Bool, active: Bool = false) -> some View {
-        HStack(spacing: 8) {
-            Group {
-                if done {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Theme.accentGreen)
-                } else if active {
-                    ProgressView().controlSize(.mini).tint(Theme.textTertiary)
-                } else {
-                    Circle().fill(Theme.textTertiary.opacity(0.3)).frame(width: 6, height: 6)
-                }
-            }
-            .frame(width: 14, height: 14)
-
-            Text(label)
-                .font(.system(size: 12))
-                .foregroundStyle(done ? Theme.textSecondary : Theme.textTertiary)
-        }
-    }
-}
-
-// MARK: - 旋转 Spinner
-
-struct SpinnerIcon: View {
-    @State private var rotating = false
-    var body: some View {
-        Image(systemName: "asterisk")
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(Theme.textTertiary)
-            .rotationEffect(.degrees(rotating ? 360 : 0))
-            .animation(.linear(duration: 1.2).repeatForever(autoreverses: false), value: rotating)
-            .onAppear { rotating = true }
-    }
-}
-
-// MARK: - 思考动画
-
-/// 演示 chip 按钮样式: press 时 spring 缩放 + 轻微透明度变化, 让卡片有"活气"。
-struct SkillCardButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
-            .opacity(configuration.isPressed ? 0.85 : 1.0)
-            .animation(.spring(response: 0.32, dampingFraction: 0.72), value: configuration.isPressed)
-    }
-}
-
-struct ThinkingIndicator: View {
-    @State private var active = 0
-    let timer = Timer.publish(every: 0.45, on: .main, in: .common).autoconnect()
-
-    var body: some View {
-        HStack(spacing: 5) {
-            ForEach(0..<3, id: \.self) { i in
-                Circle()
-                    .fill(Theme.textTertiary)
-                    .frame(width: 6, height: 6)
-                    .opacity(active == i ? 1.0 : 0.3)
-                    .scaleEffect(active == i ? 1.0 : 0.75)
-                    .animation(.easeInOut(duration: 0.35), value: active)
-            }
-        }
-        .frame(height: 20)
-        .onReceive(timer) { _ in active = (active + 1) % 3 }
-    }
-}
+// Audio, Response, and Shared UI components have been extracted to:
+// - AudioUI.swift
+// - ResponseUI.swift
+// - SharedUI.swift
