@@ -365,31 +365,35 @@ void main() {
     pmremGenerator.compileEquirectangularShader();
 
     // Two-state material: 加载/待机 dark matte, 可交互 warm amber-gold.
-    // 为了让切换对比明显 (metalness 0.85 下 color 被 envMap 压过, 色差不够),
-    // 我们同时调:
-    //   - color: 深灰 ↔ 暖琥珀
-    //   - envMapIntensity: 0 (不反射环境 HDR) ↔ 1.0 (全反射)
-    //   - emissiveIntensity: 0.15 (弱发光) ↔ 1.3 (强发光)
-    //   - roughness: 0.8 (磨砂, 没有镜面高光) ↔ 0.25 (半抛光)
-    // Inactive 时 Orb 看起来就是"熄灭的金属球", active 时"通电发光".
+    //
+    // !!! Material 必须用 "active" 参数初始化, 否则首次 WebView cold boot 时
+    //     three.js 可能编译出不包含 envMap 支路的 shader (因为 envMapIntensity:0),
+    //     之后 lerp 把 intensity 提到 1.0 也不会正常反射 HDR, 球永远黑. 第二次进入
+    //     才正常 (shader 已缓存). 解法: 初始材质用完整 active 配置 (和 session 前
+    //     一样, envMap 能正常编入 shader), 但把 lerp 目标即刻设成 inactive —
+    //     animate 循环第一帧就开始向 dim 收敛, 首帧可能有一瞬间的 active 闪烁 (<16ms
+    //     不可见), 之后一切正常切换.
     const activeColor      = new THREE.Color(0x2a1a08);
     const activeEmissive   = new THREE.Color(0x1a0f04);
     const inactiveColor    = new THREE.Color(0x141418);
     const inactiveEmissive = new THREE.Color(0x040405);
 
-    let activeTargetIntensity = 0.0;   // envMapIntensity target (start dead)
-    let activeTargetEmissive  = 0.15;  // emissiveIntensity target
-    let activeTargetRoughness = 0.80;  // roughness target
+    // 初始 target 就是 inactive (dim), 进入 Live 第一刻就向暗收敛
+    let activeTargetIntensity = 0.0;
+    let activeTargetEmissive  = 0.15;
+    let activeTargetRoughness = 0.80;
 
+    // Material 自己用 active (原始) 配置初始化, shader 完整编译
     const sphereMaterial = new THREE.MeshStandardMaterial({
-      color: inactiveColor.clone(),
+      color: activeColor.clone(),
       metalness: 0.85,
-      roughness: activeTargetRoughness,
-      emissive: inactiveEmissive.clone(),
-      emissiveIntensity: activeTargetEmissive,
-      envMapIntensity: activeTargetIntensity
+      roughness: 0.25,
+      emissive: activeEmissive.clone(),
+      emissiveIntensity: 1.2,
+      envMapIntensity: 1.0
     });
 
+    // Lerp targets 起始就指向 inactive, 让第一帧 lerp 开始推向暗态
     window.__orbTargetColor = inactiveColor.clone();
     window.__orbTargetEmissive = inactiveEmissive.clone();
 
