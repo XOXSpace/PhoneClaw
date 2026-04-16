@@ -833,7 +833,12 @@ class LiveModeEngine {
                     try await Task.sleep(nanoseconds: 15_000_000_000)
                     throw CancellationError()
                 }
-                group.addTask { [weak self] in
+                // 整个 token loop 挂 @MainActor — 每次 `await token` 期间 main actor
+                // 可以处理 SwiftUI 的 body redraw, lastReply 写入后能当帧看到.
+                // 原来把 subtask 丢在后台 actor, @Observable 跨 actor 的 observer
+                // propagation 会被 coalesce, Text view 只在 turn 结束时重绘一次.
+                // 每个 token 处理逻辑 O(几微秒), 不会 block UI.
+                group.addTask { @MainActor [weak self] in
                     guard let self else { return }
                     for try await token in stream {
                         guard self.turnPhase == .processing, self.turnGeneration == gen else { break }
@@ -854,13 +859,7 @@ class LiveModeEngine {
                         guard !parseResult.speakableText.isEmpty else { continue }
 
                         rawBuffer += parseResult.speakableText
-                        let newReply = OutputSanitizer.sanitizeFinal(rawBuffer, mode: .liveVoice)
-                        // Dispatch to main actor for immediate @Observable propagation to SwiftUI.
-                        // Without this, 20-30 tok/s updates get coalesced and Text view only
-                        // redraws at end of turn — user sees TTS voice play before text appears.
-                        Task { @MainActor [weak self] in
-                            self?.lastReply = newReply
-                        }
+                        self.lastReply = OutputSanitizer.sanitizeFinal(rawBuffer, mode: .liveVoice)
                         let delta = sanitizer.feed(rawBuffer)
                         guard !delta.isEmpty else { continue }
 
