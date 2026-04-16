@@ -100,6 +100,11 @@ class AgentEngine {
     let plannerRevision = "planner-v3-local-selection"
     var sessionSaveTask: Task<Void, Never>?
 
+    // 暴露给 CLI ScenarioRunner — 它需要知道每轮 Router 实际匹配到了哪些 skill
+    // (含 sticky), 才能对 YAML scenario 的 `skills:` 断言. iOS UI 完全不读这个,
+    // 所以暴露成普通 var 没有任何运行时影响.
+    var lastTurnMatchedSkillIds: [String] = []
+
 
     var enabledSkillInfos: [SkillInfo] {
         skillEntries.filter(\.isEnabled).map {
@@ -313,6 +318,8 @@ class AgentEngine {
         applySamplingConfig()
 
         let matchedSkillIdsForTurn = requiresMultimodal ? [] : matchedSkillIds(for: normalizedText)
+        // 暴露给 CLI harness (ScenarioRunner) 做断言. iOS UI 不读, 0 行为影响.
+        self.lastTurnMatchedSkillIds = matchedSkillIdsForTurn
         // TODO(Step 4): 接入 llm.selectedModel.supportsStructuredPlanning 后 gate Planner 入口
         let shouldUsePlanner = !requiresMultimodal && matchedSkillIdsForTurn.count >= 2
         let shouldUseFullAgentPrompt =
