@@ -183,6 +183,14 @@ class AgentEngine {
         loadSystemPrompt()       // 从 SYSPROMPT.md 注入 system prompt
         loadPersistedSessions()
         applySamplingConfig()
+
+        // Crash breadcrumb: 检查上次是否 jetsam 杀在 LLM 调用中
+        let bcKey = "PhoneClaw.lastLLMCallBreadcrumb"
+        if let last = UserDefaults.standard.string(forKey: bcKey) {
+            log("[CRASH] 上次疑似 jetsam 中断: \(last)")
+            UserDefaults.standard.removeObject(forKey: bcKey)
+        }
+
         llm.loadModel()
     }
 
@@ -332,7 +340,9 @@ class AgentEngine {
         //  - 真单 skill: Selection 返回 1, Planner 返回 false, 落回 agent 路径
         //  - 多 skill 漏匹配: Selection 返回 >=2, 进入正常 plan 流程
         // 代价: matched=1 真单 skill 场景多一次短 selection LLM call (~0.5-1s).
-        let shouldUsePlanner = !requiresMultimodal && matchedSkillIdsForTurn.count >= 1
+        let shouldUsePlanner = !requiresMultimodal
+            && matchedSkillIdsForTurn.count >= 1
+            && (llm.loadedModel ?? llm.selectedModel).supportsStructuredPlanning
         let shouldUseFullAgentPrompt =
             !requiresMultimodal
             && shouldUseToolingPrompt(for: normalizedText)
@@ -575,9 +585,19 @@ class AgentEngine {
     // MARK: - Skill 结果后的后续推理（支持多轮工具链）
 
     func streamLLM(prompt: String, images: [CIImage]) async -> String? {
+        // Crash breadcrumb: jetsam 前留下最后一次 LLM 调用的信息
+        let bcKey = "PhoneClaw.lastLLMCallBreadcrumb"
+        UserDefaults.standard.set(
+            "prompt_chars=\(prompt.count)|headroom=\(llm.availableHeadroomMB)|t=\(Date().timeIntervalSince1970)",
+            forKey: bcKey
+        )
+        UserDefaults.standard.synchronize()
+
         return await withCheckedContinuation { (continuation: CheckedContinuation<String?, Never>) in
             llm.generateStream(prompt: prompt, images: images, audios: []) { _ in
             } onComplete: { result in
+                // 所有显式完成路径都清 breadcrumb，只有进程被 jetsam 杀时才残留
+                UserDefaults.standard.removeObject(forKey: bcKey)
                 switch result {
                 case .success(let text):
                     log("[Agent] LLM raw: \(text.prefix(300))")
@@ -591,6 +611,14 @@ class AgentEngine {
     }
 
     func streamLLM(prompt: String, msgIndex: Int, images: [CIImage]) async -> String? {
+        // Crash breadcrumb
+        let bcKey = "PhoneClaw.lastLLMCallBreadcrumb"
+        UserDefaults.standard.set(
+            "prompt_chars=\(prompt.count)|headroom=\(llm.availableHeadroomMB)|msgIdx=\(msgIndex)|t=\(Date().timeIntervalSince1970)",
+            forKey: bcKey
+        )
+        UserDefaults.standard.synchronize()
+
         var buffer = ""
         return await withCheckedContinuation { (continuation: CheckedContinuation<String?, Never>) in
             var toolCallDetected = false
@@ -621,9 +649,12 @@ class AgentEngine {
                 }
             } onComplete: { [weak self] result in
                 guard let self = self else {
+                    UserDefaults.standard.removeObject(forKey: bcKey)
                     continuation.resume(returning: nil)
                     return
                 }
+                // 所有显式完成路径都清 breadcrumb
+                UserDefaults.standard.removeObject(forKey: bcKey)
                 switch result {
                 case .success(let text):
                     log("[Agent] LLM raw: \(text.prefix(300))")

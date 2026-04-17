@@ -48,8 +48,14 @@ extension AgentEngine {
 
         return chosenEntries.map { entry in
             if compact {
+                // 渐进式披露: compact 保留 skill 一句话描述, 足够 Selection 判断
+                // "需要哪几个 skill". content skill (如 translate) 无 tool, 纯靠描述选中.
                 let tools = registeredTools(for: entry.id).map(\.name).joined(separator: "、")
-                return "- \(entry.id): \(tools)"
+                if tools.isEmpty {
+                    return "- \(entry.id): \(entry.description)"
+                } else {
+                    return "- \(entry.id): \(entry.description) 工具: \(tools)"
+                }
             } else {
                 let tools = registeredTools(for: entry.id).map {
                     "\($0.name): \($0.description)"
@@ -282,7 +288,14 @@ extension AgentEngine {
         // 代价: 多一次短 LLM call (~1s on E4B). 收益: 矫正 Router 漏匹配.
         // Selection LLM 总跑, 用全 enabled skill set 作为可选范围.
         let selectionCandidateSkillIds = skillEntries.filter(\.isEnabled).map(\.id)
-        let selectionSkillsSummary = buildAvailableSkillsSummary(skillIds: selectionCandidateSkillIds)
+        // 渐进式披露: Selection 只需 skill 名 + 工具列表判断 "需要哪几个 skill"，
+        // 不需要每个 tool 的完整描述和参数定义. Planning LLM (L392) 早已用 compact:true,
+        // Selection 是唯一用 full 的地方 — 这是遗漏, 不是设计意图.
+        // compact 把 Selection prompt 从 ~2800→~600 chars, prefill activation 降 ~17x.
+        let selectionSkillsSummary = buildAvailableSkillsSummary(
+            skillIds: selectionCandidateSkillIds,
+            compact: true
+        )
         let selectedSkillIds: [String]
         guard !selectionSkillsSummary.isEmpty else {
             messages.append(ChatMessage(role: .assistant, content: "⚠️ 当前没有可用于编排的 Skill。"))

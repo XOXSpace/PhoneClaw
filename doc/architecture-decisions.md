@@ -35,15 +35,18 @@
 
 ## ADR-003：拒绝合并 Planner Selection + Planning 为单一 Prompt
 
-**决策**：保留 Selection → Planning 两步 LLM 调用。
+**决策**：保留 Selection → Planning 两步 LLM 调用。Selection 默认 compact summary。
 
 **理由**：
 - 分两步是"外置 CoT"——让小模型一次只做一件事，更可靠
-- ≤3 个候选时 Selection 已走本地快捷路径（L732），不调 LLM
+- Selection 默认 compact (渐进式披露): 只暴露 skill 名 + 一句话描述 + tool 列表,
+  不暴露每个 tool 的完整描述和参数 (Selection 只判断"需要哪几个 skill", 不需要 tool 细节;
+  Planning 早已用 compact:true, Selection 是唯一遗漏)
+- Selection 作为 Router 纠偏器存在: `supportsStructuredPlanning=true` 的模型才走此路径
 - 合并后单个 prompt 更长，JSON 遵从度下降
 - Selection 有独立的 `validateSkillSelection()` 验证，失败可以便宜重试；合并后重试成本翻倍
 
-**重评条件**：埋点证实 `matchedSkills > 3` 触发频率 > 5%（此时改为 Selection 短路跳过，不合并 prompt）。
+**重评条件**：compact Selection 准确率验证显著低于 full, 或 Skill 数量 > 15。
 
 ---
 
@@ -92,16 +95,31 @@
 
 ---
 
-## ADR-007：无 Prompt Prefix Caching
+## ADR-007：KV Cache 复用
 
-**决策**：不针对 KV cache 前缀命中率调整 prompt 结构。
+**决策**：已实现 KV cache 前缀复用 (F3, 2026-04-17)。
+
+**历史**：
+- 初始决策 (2026-04-07): 不做 prefix caching — 每次 `clearCache()` 从头建 KV
+- F3 (2026-04-17): `appendToolResult` 路径 R2=R1+output+tool_result, KV 命中率 6%→99%+
+- KV cache 4-bit 量化已对 E4B/E2B 双模型启用
+
+**状态**：已关闭。`clearCache()` 清的是 Metal transient buffer, 不是 KV tensor。
+
+---
+
+## ADR-008：渐进式 Skill 披露
+
+**决策**：Selection LLM 默认使用 compact skill summary（渐进式披露）。
 
 **理由**：
-- `MLXLocalLLMService.generateStream` 每次推理前调用 `MLX.GPU.clearCache()`
-- 每次推理从头构建完整 KV cache，prompt 前缀稳定性不影响延迟
-- 任何"缓存友好 prompt 重构"需先实现实际的 prefix caching
+- Selection 的职责是"判断需要哪几个 skill"，不需要看 tool 描述/参数
+- Planning LLM 早已用 `compact: true`，Selection 用 full 是遗漏，不是设计意图
+- compact (~600 chars) vs full (~2800 chars): prefill activation 降 ~17x (chunked prefill 256 window 下)
+- Content skill (如 translate, allowedTools=[]) 在 compact 模式下保留 `entry.description` 一句话描述,
+  确保 Selection 仍有语义依据选中它们
 
-**重评条件**：PhoneClaw 实现跨请求 KV cache 持久化 + 前缀匹配。
+**重评条件**：compact Selection 准确率实测显著低于 full (掉 >3 个 harness case)。
 
 ---
 
