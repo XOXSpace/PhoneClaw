@@ -158,6 +158,24 @@ hf download mlx-community/gemma-4-e4b-it-4bit --local-dir ./Models/gemma-4-e4b-i
 
 然后把两个模型 folder reference 都加回 Xcode 的 `Copy Bundle Resources`。
 
+**LIVE 模式（语音交互）额外模型**
+
+如果你需要使用 LIVE 模式的语音识别和语音合成，需要额外下载 ASR 和 TTS 模型：
+
+```bash
+# ASR — 中文流式语音识别 (zipformer, int8, ~160MB)
+hf download csukuangfj/sherpa-onnx-streaming-zipformer-zh-int8-2025-06-30 \
+  --local-dir ./Models/sherpa-asr-zh \
+  --exclude "test_wavs/*" "*.md" ".gitattributes"
+
+# TTS — 中文语音合成 (keqing, ~125MB)
+hf download csukuangfj/vits-zh-hf-keqing \
+  --local-dir ./Models/vits-zh-hf-keqing \
+  --exclude "*.py" "*.sh" ".gitattributes"
+```
+
+下载后在 Xcode 中将 `Models/sherpa-asr-zh` 和 `Models/vits-zh-hf-keqing` 以 folder reference 方式添加到 `Copy Bundle Resources`。不下载也不影响编译和基础聊天功能，LIVE 模式会自动 fallback 到系统语音。
+
 ### 4. 打开工程
 
 ```bash

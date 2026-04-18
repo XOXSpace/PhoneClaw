@@ -116,10 +116,7 @@
 		AB877F6AD9467C63509E499F /* ResponseUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4628E2A5FD49247E1D6BE283 /* ResponseUI.swift */; };
 		B0FB758750EA8CEBC4DBF08A /* BaseTextFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 048D73DED34FDD15E9F98763 /* BaseTextFilter.swift */; };
 		B1A2C3D4E5F607182930B100 /* Library in Resources */ = {isa = PBXBuildFile; fileRef = B1A2C3D4E5F607182930B101 /* Library */; };
-		B1A2C3D4E5F607182930B102 /* gemma-4-e2b-it-4bit in Resources */ = {isa = PBXBuildFile; fileRef = D5E6F7081A2B3C4D5E6F7084 /* gemma-4-e2b-it-4bit */; };
-		B1A2C3D4E5F607182930B103 /* gemma-4-e4b-it-4bit in Resources */ = {isa = PBXBuildFile; fileRef = D5E6F7081A2B3C4D5E6F7086 /* gemma-4-e4b-it-4bit */; };
-		B1A2C3D4E5F607182930B104 /* sherpa-asr-zh in Resources */ = {isa = PBXBuildFile; fileRef = D5E6F7081A2B3C4D5E6F7088 /* sherpa-asr-zh */; };
-		B1A2C3D4E5F607182930B106 /* vits-zh-hf-keqing in Resources */ = {isa = PBXBuildFile; fileRef = D5E6F7081A2B3C4D5E6F7092 /* vits-zh-hf-keqing */; };
+
 		B1A2C3D4E5F607182930B107 /* piz_compressed.exr in Resources */ = {isa = PBXBuildFile; fileRef = D5E6F7081A2B3C4D5E6F7094 /* piz_compressed.exr */; };
 		B1A2C3D4E5F607182930B108 /* studio_env.hdr in Resources */ = {isa = PBXBuildFile; fileRef = D5E6F7081A2B3C4D5E6F7096 /* studio_env.hdr */; };
 		B85F211303561796B93E9575 /* VADUserTurnStartStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 801423D197CB93890BB039C5 /* VADUserTurnStartStrategy.swift */; };
@@ -243,10 +240,7 @@
 		D3A1B2C3D4E5F60718290109 /* Reminders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Reminders.swift; sourceTree = "<group>"; };
 		D3A1B2C3D4E5F60718290110 /* Contacts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Contacts.swift; sourceTree = "<group>"; };
 		D3A1B2C3D4E5F60718290111 /* Health.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Health.swift; sourceTree = "<group>"; };
-		D5E6F7081A2B3C4D5E6F7084 /* gemma-4-e2b-it-4bit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "gemma-4-e2b-it-4bit"; path = "Models/gemma-4-e2b-it-4bit"; sourceTree = "<group>"; };
-		D5E6F7081A2B3C4D5E6F7086 /* gemma-4-e4b-it-4bit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "gemma-4-e4b-it-4bit"; path = "Models/gemma-4-e4b-it-4bit"; sourceTree = "<group>"; };
-		D5E6F7081A2B3C4D5E6F7088 /* sherpa-asr-zh */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "sherpa-asr-zh"; path = "Models/sherpa-asr-zh"; sourceTree = "<group>"; };
-		D5E6F7081A2B3C4D5E6F7092 /* vits-zh-hf-keqing */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "vits-zh-hf-keqing"; path = "Models/vits-zh-hf-keqing"; sourceTree = "<group>"; };
+
 		D5E6F7081A2B3C4D5E6F7094 /* piz_compressed.exr */ = {isa = PBXFileReference; lastKnownFileType = file; name = "piz_compressed.exr"; path = "App/piz_compressed.exr"; sourceTree = SOURCE_ROOT; };
 		D5E6F7081A2B3C4D5E6F7096 /* studio_env.hdr */ = {isa = PBXFileReference; lastKnownFileType = file; name = "studio_env.hdr"; path = "App/studio_env.hdr"; sourceTree = SOURCE_ROOT; };
 		DAF684F9A04FAEE76440F69C /* OrbAudioAnalyser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OrbAudioAnalyser.swift; path = Live/Audio/OrbAudioAnalyser.swift; sourceTree = SOURCE_ROOT; };
@@ -296,10 +290,7 @@
 			isa = PBXGroup;
 			children = (
 				D21E6B56B839A63857912FE0 /* PhoneClaw */,
-				D5E6F7081A2B3C4D5E6F7084 /* gemma-4-e2b-it-4bit */,
-				D5E6F7081A2B3C4D5E6F7086 /* gemma-4-e4b-it-4bit */,
-				D5E6F7081A2B3C4D5E6F7088 /* sherpa-asr-zh */,
-				D5E6F7081A2B3C4D5E6F7092 /* vits-zh-hf-keqing */,
+
 				D5E6F7081A2B3C4D5E6F7094 /* piz_compressed.exr */,
 				D5E6F7081A2B3C4D5E6F7096 /* studio_env.hdr */,
 				AC5E0AA2711EA01E891DE3A7 /* Products */,
@@ -620,7 +611,7 @@
 				AA4000000000000000000001 /* XCLocalSwiftPackageReference "Packages/InferenceKit" */,
 				AA4000000000000000000002 /* XCRemoteSwiftPackageReference "mlx-swift" */,
 				AA4000000000000000000003 /* XCRemoteSwiftPackageReference "swift-tokenizers" */,
-				AA4000000000000000000004 /* XCLocalSwiftPackageReference "../FluidAudio" */,
+				AA4000000000000000000004 /* XCLocalSwiftPackageReference "Packages/FluidAudio" */,
 				AA4000000000000000000005 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -640,10 +631,7 @@
 			files = (
 				ICONASSETS0000000000002 /* Assets.xcassets in Resources */,
 				B1A2C3D4E5F607182930B100 /* Library in Resources */,
-				B1A2C3D4E5F607182930B102 /* gemma-4-e2b-it-4bit in Resources */,
-				B1A2C3D4E5F607182930B103 /* gemma-4-e4b-it-4bit in Resources */,
-				B1A2C3D4E5F607182930B104 /* sherpa-asr-zh in Resources */,
-				B1A2C3D4E5F607182930B106 /* vits-zh-hf-keqing in Resources */,
+
 				B1A2C3D4E5F607182930B107 /* piz_compressed.exr in Resources */,
 				B1A2C3D4E5F607182930B108 /* studio_env.hdr in Resources */,
 			);
@@ -1025,9 +1013,9 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/InferenceKit;
 		};
-		AA4000000000000000000004 /* XCLocalSwiftPackageReference "../FluidAudio" */ = {
+		AA4000000000000000000004 /* XCLocalSwiftPackageReference "Packages/FluidAudio" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../FluidAudio;
+			relativePath = Packages/FluidAudio;
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -1096,7 +1084,7 @@
 		};
 		AA5000000000000000000008 /* FluidAudio */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = AA4000000000000000000004 /* XCLocalSwiftPackageReference "../FluidAudio" */;
+			package = AA4000000000000000000004 /* XCLocalSwiftPackageReference "Packages/FluidAudio" */;
 			productName = FluidAudio;
 		};
 		AA5000000000000000000009 /* MarkdownUI */ = {

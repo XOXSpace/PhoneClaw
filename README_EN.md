@@ -188,6 +188,24 @@ Models/
 > Approximate repository sizes on Hugging Face: E2B ~3.58 GB, E4B ~5.22 GB.
 > You can also download manually from the model page and place files in the correct directory.
 
+**LIVE Mode (voice interaction) additional models**
+
+If you want to use LIVE mode with voice recognition and synthesis, download the ASR and TTS models:
+
+```bash
+# ASR — Chinese streaming speech recognition (zipformer, int8, ~160MB)
+hf download csukuangfj/sherpa-onnx-streaming-zipformer-zh-int8-2025-06-30 \
+  --local-dir ./Models/sherpa-asr-zh \
+  --exclude "test_wavs/*" "*.md" ".gitattributes"
+
+# TTS — Chinese text-to-speech (keqing, ~125MB)
+hf download csukuangfj/vits-zh-hf-keqing \
+  --local-dir ./Models/vits-zh-hf-keqing \
+  --exclude "*.py" "*.sh" ".gitattributes"
+```
+
+After downloading, add `Models/sherpa-asr-zh` and `Models/vits-zh-hf-keqing` as folder references to `Copy Bundle Resources` in Xcode. Skipping this step won't break the build — LIVE mode will fall back to system speech.
+
 ### 4. Open the workspace
 
 ```bash
