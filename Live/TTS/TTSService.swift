@@ -46,7 +46,17 @@ class TTSService {
         state = .loading
         print("[TTS] Initializing sherpa-onnx + keqing...")
 
-        if let modelDir = Bundle.main.path(forResource: "vits-zh-hf-keqing", ofType: nil) {
+        // 双路径查找: Bundle 优先 (向后兼容打包方式), 其次 Documents (手机端下载)
+        let modelDir: String?
+        if let bundled = Bundle.main.path(forResource: "vits-zh-hf-keqing", ofType: nil) {
+            modelDir = bundled
+        } else if let downloaded = LiveModelDefinition.resolve(for: LiveModelDefinition.tts) {
+            modelDir = downloaded.path
+        } else {
+            modelDir = nil
+        }
+
+        if let modelDir {
             let modelPath = modelDir + "/keqing.onnx"
             let lexiconPath = modelDir + "/lexicon.txt"
             let tokensPath = modelDir + "/tokens.txt"

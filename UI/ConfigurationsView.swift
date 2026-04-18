@@ -21,6 +21,7 @@ struct ConfigurationsView: View {
     @State private var systemPrompt: String = ""
     @State private var permissionStatuses: [AppPermissionKind: AppPermissionStatus] = [:]
     @State private var requestingPermission: AppPermissionKind?
+    @State private var liveDownloader = LiveModelDownloader()
 
     private var isChineseSystem: Bool {
         Locale.preferredLanguages.contains { $0.hasPrefix("zh") }
@@ -91,6 +92,7 @@ struct ConfigurationsView: View {
         #if canImport(UIKit)
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             engine.llm.refreshModelInstallStates()
+            liveDownloader.refreshState()
             refreshPermissionStatuses()
         }
         #endif
@@ -121,6 +123,7 @@ struct ConfigurationsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 modelSection
+                liveModelSection
                 configSlider(
                     title: localized("最大 Token 数", "Max Tokens"),
                     value: $maxTokens,
@@ -296,6 +299,164 @@ struct ConfigurationsView: View {
             RoundedRectangle(cornerRadius: 16)
                 .strokeBorder(Theme.border, lineWidth: 1)
         )
+    }
+
+    // MARK: - LIVE 语音模型
+
+    private var liveModelSection: some View {
+        let state = liveDownloader.installState
+        let isDownloading: Bool = {
+            if case .downloading = state { return true }
+            return false
+        }()
+
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(localized("LIVE 语音模型", "LIVE Voice Models"))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                    Text(localized(
+                        "LIVE 实时语音模式需要的模型。",
+                        "Required for LIVE real-time voice mode."
+                    ))
+                    .font(.caption2)
+                    .foregroundStyle(Theme.textTertiary)
+                    .padding(.top, 2)
+                }
+
+                Spacer()
+
+                if !isDownloading {
+                    VStack(alignment: .trailing, spacing: 8) {
+                        liveModelStateButton
+                    }
+                }
+            }
+
+            if case let .downloading(completedFiles, totalFiles, _) = state {
+                liveDownloadProgressView(
+                    completedFiles: completedFiles,
+                    totalFiles: totalFiles
+                )
+            }
+
+            if let detail = liveStateDetail(state) {
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(state.isFailure ? Theme.accent : Theme.textTertiary)
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Theme.bg)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(Theme.border, lineWidth: 1)
+        )
+    }
+
+    @ViewBuilder
+    private var liveModelStateButton: some View {
+        switch liveDownloader.installState {
+        case .notInstalled:
+            Button(localized("下载", "Download")) {
+                Task { await liveDownloader.downloadAll() }
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(Theme.accent)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Theme.accent.opacity(0.15), in: Capsule())
+        case .checkingSource:
+            modelBadge(localized("检查中", "Checking"))
+        case .downloading:
+            EmptyView()
+        case .downloaded:
+            modelBadge(localized("已下载", "Downloaded"), color: Theme.accentGreen)
+        case .bundled:
+            modelBadge(localized("内置", "Bundled"), color: Theme.accentGreen)
+        case .failed:
+            Button(localized("重试", "Retry")) {
+                Task { await liveDownloader.downloadAll() }
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(Theme.accent)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Theme.accent.opacity(0.15), in: Capsule())
+        }
+    }
+
+    private func liveDownloadProgressView(
+        completedFiles: Int,
+        totalFiles: Int
+    ) -> some View {
+        let safeTotal = max(totalFiles, 1)
+        let value = Double(min(completedFiles, safeTotal))
+        let metrics = liveDownloader.downloadMetrics
+
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(localized(
+                        "下载中 \(completedFiles)/\(totalFiles)",
+                        "Downloading \(completedFiles)/\(totalFiles)"
+                    ))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+
+                    if let metrics {
+                        Text(liveDownloadMetricsText(metrics))
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(Theme.textTertiary)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer(minLength: 8)
+
+                Button(localized("取消", "Cancel")) {
+                    liveDownloader.cancelDownload()
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Theme.textPrimary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Theme.bg, in: Capsule())
+                .fixedSize(horizontal: true, vertical: true)
+            }
+
+            ProgressView(value: value, total: Double(safeTotal))
+                .progressViewStyle(.linear)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Theme.textTertiary.opacity(0.14), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func liveDownloadMetricsText(_ metrics: ModelDownloadMetrics) -> String {
+        let speedText = formattedSpeed(metrics.bytesPerSecond)
+        if let totalBytes = metrics.totalBytes, totalBytes > 0 {
+            return "\(formattedBytes(metrics.bytesReceived)) / \(formattedBytes(totalBytes)) · \(speedText)"
+        }
+        return "\(formattedBytes(metrics.bytesReceived)) · \(speedText)"
+    }
+
+    private func liveStateDetail(_ state: ModelInstallState) -> String? {
+        switch state {
+        case .notInstalled:
+            return localized("未安装 (~\(LiveModelDefinition.estimatedSizeMB)MB)", "Not installed (~\(LiveModelDefinition.estimatedSizeMB)MB)")
+        case .downloaded:
+            return localized("已下载到手机本地。", "Downloaded to device.")
+        case .failed(let msg):
+            return msg
+        default:
+            return nil
+        }
     }
 
     private var permissionsSection: some View {
@@ -638,6 +799,7 @@ struct ConfigurationsView: View {
 
     private func loadCurrentSettings() {
         engine.llm.refreshModelInstallStates()
+        liveDownloader.refreshState()
         selectedModelID = engine.llm.loadedModelID ?? engine.config.selectedModelID
         maxTokens = Double(engine.config.maxTokens)
         topK = Double(engine.config.topK)

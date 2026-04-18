@@ -220,6 +220,15 @@ class LiveModeEngine {
         statusMessage = "正在准备 Live"
         print("[Live] Starting (legacy)...")
 
+        // 检查 LIVE 语音模型是否已就绪 (ASR + TTS)
+        if !LiveModelDefinition.isAvailable {
+            print("[Live] ❌ LIVE voice models not available")
+            turnPhase = .inactive
+            state = .idle
+            statusMessage = "请先在配置页下载 LIVE 语音模型"
+            return
+        }
+
         let io = LiveAudioIO()
         do {
             try io.start()

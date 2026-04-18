@@ -22,8 +22,14 @@ class ASRService {
     private(set) var isAvailable = false
 
     func initialize() {
-        guard let modelDir = Bundle.main.path(forResource: "sherpa-asr-zh", ofType: nil) else {
-            print("[ASR] ❌ Model not found in bundle")
+        // 双路径查找: Bundle 优先 (向后兼容打包方式), 其次 Documents (手机端下载)
+        let modelDir: String
+        if let bundled = Bundle.main.path(forResource: "sherpa-asr-zh", ofType: nil) {
+            modelDir = bundled
+        } else if let downloaded = LiveModelDefinition.resolve(for: LiveModelDefinition.asr) {
+            modelDir = downloaded.path
+        } else {
+            print("[ASR] ❌ Model not found in bundle or downloads")
             return
         }
 
